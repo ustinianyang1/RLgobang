@@ -127,9 +127,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="wuziqi.cpp" />
+    <ClCompile Include="chess.cpp" />
+    <ClCompile Include="global.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="chess.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

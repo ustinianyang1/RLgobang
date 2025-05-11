@@ -6,36 +6,36 @@ const int unitsize = 60;
 const int boxsize = 840;
 const int scenesize = 900;
 const int radius = unitsize / 2;
-bool gameover = false;
-bool robothumangamestart = false;
-bool robotrobotgamestart = false;
+extern bool gameover;
+extern bool robothumangamestart;
+extern bool robotrobotgamestart;
 
 // 按钮区域定义
-RECT undoBtn = {scenesize - 120, 20, scenesize - 20, 60};
-RECT redoBtn = {scenesize - 120, 80, scenesize - 20, 120};
-RECT newGameBtn = {scenesize - 120, 140, scenesize - 20, 180};
-COLORREF BOARD_COLOR = RGB(255, 153, 51);
-COLORREF BTN_COLOR = RGB(70, 130, 180);
-COLORREF BTN_HOVER_COLOR = RGB(100, 149, 237);
+extern RECT undoBtn;
+extern RECT redoBtn;
+extern RECT newGameBtn;
+extern COLORREF BOARD_COLOR;
+extern COLORREF BTN_COLOR;
+extern COLORREF BTN_HOVER_COLOR;
 
-std::vector <std::vector<int>>cover(15, std::vector<int>(15, 2));//0->black, 1->white, 2->empty
-std::vector <std::vector<int>> historyHeuristic(15, std::vector<int>(15, 0));//历史启发表
-std::vector <std::vector<int>>blackscore(15, std::vector<int>(15, 0));
-std::vector <std::vector<int>>whitescore(15, std::vector<int>(15, 0));
-std::vector <std::vector<int>>blackminimaxscore(15, std::vector<int>(15, 0));
-std::vector <std::vector<int>>whiteminimaxscore(15, std::vector<int>(15, 0));
-std::vector <std::pair<int, int>> history;
-static int count = 0;
-static int step = -1;
+extern std::vector <std::vector<int>>cover;
+extern std::vector <std::vector<int>> historyHeuristic;
+extern std::vector <std::vector<int>>blackscore;
+extern std::vector <std::vector<int>>whitescore;
+extern std::vector <std::vector<int>>blackminimaxscore;
+extern std::vector <std::vector<int>>whiteminimaxscore;
+extern std::vector <std::pair<int, int>> history;
+extern int count;
+extern int step;
 enum Color
 {
 	black = 0, white = 1
 };
 
-const double attackpreferenceblack = 2;//黑方攻击分倍率
-const double attackpreferencewhite = 1.5;//白方攻击分倍率
+const double attackpreferenceblack = 1.5;//黑方攻击分倍率
+const double attackpreferencewhite = 1.3;//白方攻击分倍率
 
-const int searchdepth = 4;//搜索深度
+const int searchdepth = 3;//搜索深度
 
 const int specialfive = 1000000;//嵌五
 const int livefour = 900000;//活四
@@ -51,6 +51,8 @@ const int deadtwo = 5;//冲二
 const int liveone = 20;//活单
 const int deadone = 1;//冲单
 
-const int max_branches = 20;//着法分支上限
+const int max_branches = 15;//着法分支上限
 
-const double depthdeclinerate = 0.9;//深度衰减倍率
+const double depthdeclinerate = 0.8;//深度衰减倍率
+
+const int UPDATE_RADIUS = 5;  // 更新半径
