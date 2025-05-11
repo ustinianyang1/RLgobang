@@ -50,6 +50,21 @@ void chechClick(ExMessage &msg);
 void automatch();
 void aimove();
 void drawButton(const RECT &rect, const wchar_t *text, bool hover);
+void showThinkingStatus(const wchar_t *message);
+
+void showThinkingStatus(const wchar_t *message)
+{
+	// 在侧边栏显示思考状态
+	setfillcolor(RGB(245, 245, 220));
+	solidrectangle(boxsize + radius * 2, scenesize - 150, scenesize, scenesize - 120);
+
+	settextcolor(RGB(255, 0, 0));
+	settextstyle(20, 0, _T("微软雅黑"));
+	int textWidth = textwidth(message);
+	outtextxy(scenesize - 30 - textWidth, scenesize - 150, message);
+
+	FlushBatchDraw();
+}
 
 void drawButton(const RECT &rect, const wchar_t *text, bool hover = false)
 {
@@ -393,24 +408,33 @@ void drawBoard()
 
 void showStartScreen()
 {
+	// 使用棕色背景
+	setbkcolor(BOARD_COLOR);
 	cleardevice();
 
-	// 背景渐变
-	for(int i = 0; i < 256; i++)
-	{
-		setfillcolor(RGB(i, 255 - i, 255));
-		solidrectangle(0, i * 4, scenesize, (i + 1) * 4);
-	}
+	// 添加一些装饰
+	setfillcolor(RGB(210, 140, 70)); // 深棕色装饰
+	solidrectangle(50, 50, scenesize - 50, scenesize - 50);
 
-	settextcolor(WHITE);
-	settextstyle(50, 0, _T("微软雅黑"));
+	// 再添加一层内框
+	setfillcolor(RGB(245, 222, 179)); // 浅棕色内框
+	solidrectangle(70, 70, scenesize - 70, scenesize - 70);
+
+	// 设置标题文字
+	settextcolor(RGB(139, 69, 19)); // 深棕色文字
+	settextstyle(60, 0, _T("微软雅黑"));
 	const wchar_t *mainTitle = L"五子棋";
 	int titleWidth = textwidth(mainTitle);
-	outtextxy((scenesize - titleWidth) / 2, 200, mainTitle);
+	outtextxy((scenesize - titleWidth) / 2, 150, mainTitle);
 
 	// 绘制开始按钮
 	RECT startBtn1 = {scenesize / 2 - 100, 350, scenesize / 2 + 100, 400};
 	RECT startBtn2 = {scenesize / 2 - 100, 450, scenesize / 2 + 100, 500};
+
+	ExMessage msg;
+	while(peekmessage(&msg, EM_MOUSE))
+	{
+	}
 
 	while(true)
 	{
@@ -426,18 +450,26 @@ void showStartScreen()
 			msg.x > startBtn2.left && msg.x < startBtn2.right &&
 			msg.y > startBtn2.top && msg.y < startBtn2.bottom);
 
+		FlushBatchDraw();
+
 		if(msg.message == WM_LBUTTONDOWN)
 		{
 			if(msg.x > startBtn1.left && msg.x < startBtn1.right &&
 				msg.y > startBtn1.top && msg.y < startBtn1.bottom)
 			{
 				robothumangamestart = true;
+				cleardevice();
+				drawBoard();
+				FlushBatchDraw();
 				return;
 			}
 			if(msg.x > startBtn2.left && msg.x < startBtn2.right &&
 				msg.y > startBtn2.top && msg.y < startBtn2.bottom)
 			{
 				robotrobotgamestart = true;
+				cleardevice();
+				drawBoard();
+				FlushBatchDraw();
 				return;
 			}
 		}
@@ -447,42 +479,30 @@ void showStartScreen()
 
 void showGameOver()
 {
-	setbkcolor(BLACK);
-	cleardevice();
+	HWND hwnd = GetHWnd();
+	int result = MessageBox(hwnd,
+		(::count == 1 ? L"黑方胜利！继续游戏吗？" : L"白方胜利！继续游戏吗？"),
+		L"游戏结束",
+		MB_YESNO
+	);
 
-	settextcolor(RED);
-	settextstyle(50, 0, _T("宋体"));
-	const wchar_t *winText = (::count == 1) ? _T("黑方胜利!") : _T("白方胜利!");
-	int textWidth = textwidth(winText);
-	outtextxy((scenesize - textWidth) / 2, 300, winText);
-
-	settextstyle(30, 0, _T("宋体"));
-	const wchar_t *tipText = _T("按 R 重新开始   按 ESC 退出");
-	int tipWidth = textwidth(tipText);
-	outtextxy((scenesize - tipWidth) / 2, 400, tipText);
-
-	while(true)
+	if(result == IDYES)
 	{
-		if(_kbhit())
-		{
-			int key = _getch();
-			if(tolower(key) == 'r')
-			{
-				gameover = false;
-				robothumangamestart = true;
-				::count = 0;
-				cover = std::vector<std::vector<int>>(16, std::vector<int>(16, 2));
-				cleardevice();
-				drawBoard();
-				return;
-			}
-			else if(key == 27)
-			{
-				closegraph();
-				exit(0);
-			}
-		}
-		Sleep(10);
+		gameover = false;
+		::count = 0;
+		cover = std::vector<std::vector<int>>(15, std::vector<int>(15, 2));
+		history.clear();
+		step = -1;
+		robothumangamestart = false;
+		robotrobotgamestart = false;
+		cleardevice();
+		drawBoard();
+		FlushBatchDraw();
+	}
+	else
+	{
+		closegraph();
+		exit(0);
 	}
 }
 
@@ -687,8 +707,15 @@ bool checklong(int &targetx, int &targety)
 
 void automatch()
 {
+	// 显示思考状态
+	showThinkingStatus((::count == 0 ? L"黑方AI思考中..." : L"白方AI思考中..."));
+
 	upgradescore();
 	Node target = minimax(searchdepth, ::count, INT_MIN, INT_MAX);
+
+	// 清除思考状态
+	showThinkingStatus(L"");
+
 	if(target.x == -1 || target.y == -1)
 	{
 		int targetx = (cover.size() - 1) / 2, targety = (cover[0].size() - 1) / 2;
@@ -708,6 +735,7 @@ void automatch()
 				}
 			}
 		}
+
 		int highestscore = INT_MIN;
 		for(int x = 0; x < cover.size(); x++)
 		{
@@ -727,10 +755,12 @@ void automatch()
 				}
 			}
 		}
+
 		if(highestscore == INT_MIN)
 			system("pause");
 		target.x = targetx, target.y = targety;
 	}
+
 	history.push_back(std::make_pair(target.x, target.y));
 	step++;
 	Chess chess(target.x, target.y, Color(::count));
@@ -739,17 +769,23 @@ void automatch()
 	::count = (::count + 1) % 2;
 	if(chess.checkfive())
 	{
-		//Sleep(2000);
-		system("pause");
+		showThinkingStatus(L"");
 		robotrobotgamestart = false;
 		gameover = true;
 	}
 }
 
+
 void aimove()
 {
 	upgradescore();
+	// 显示思考状态
+	showThinkingStatus(L"AI思考中...");
 	Node target = minimax(searchdepth, ::count, INT_MIN, INT_MAX);
+
+	// 清除思考状态
+	showThinkingStatus(L"");
+
 	if(target.x == -1 || target.y == -1)
 	{
 		int targetx = (cover.size() - 1) / 2, targety = (cover[0].size() - 1) / 2;
@@ -769,6 +805,7 @@ void aimove()
 				}
 			}
 		}
+
 		int highestscore = INT_MIN;
 		for(int x = 0; x < cover.size(); x++)
 		{
@@ -788,23 +825,30 @@ void aimove()
 				}
 			}
 		}
+
+
 		if(highestscore == INT_MIN)
 			system("pause");
 		target.x = targetx, target.y = targety;
 	}
+
 	history.push_back(std::make_pair(target.x, target.y));
 	step++;
 	Chess chess(target.x, target.y, Color(::count));
 	cover[target.x][target.y] = ::count;
 	chess.drawChess();
 	::count = (::count + 1) % 2;
+	drawBoard();
+	FlushBatchDraw();
+
 	if(chess.checkfive())
 	{
-		Sleep(2000);
+		showThinkingStatus(L"");
 		robothumangamestart = false;
 		gameover = true;
 	}
 }
+
 
 void chechClick(ExMessage &msg)
 {
@@ -820,6 +864,7 @@ void chechClick(ExMessage &msg)
 				step--;
 				::count = (::count + 1) % 2;
 				drawBoard();
+				FlushBatchDraw();
 			}
 			return;
 		}
@@ -843,7 +888,9 @@ void chechClick(ExMessage &msg)
 			cover = std::vector<std::vector<int>>(15, std::vector<int>(15, 2));
 			history.clear();
 			step = -1;
+			cleardevice();
 			drawBoard();
+			FlushBatchDraw();
 			return;
 		}
 
@@ -870,9 +917,9 @@ void chechClick(ExMessage &msg)
 			if(::count == 0 && (checkthree(targetx, targety) || checkfour(targetx, targety) || checklong(targetx, targety)))
 			{
 				HWND hwnd = GetHWnd();
-				SetWindowText(hwnd, _T("��ʾ"));
+				SetWindowText(hwnd, _T("提示"));
 				if(checkthree(targetx, targety) || checkfour(targetx, targety) || checklong(targetx, targety))
-					MessageBox(hwnd, _T("��������ᴥ������"), _T("��ʾ"), MB_OKCANCEL);
+					MessageBox(hwnd, _T("下在这里会触发禁手"), _T("ok"), MB_OKCANCEL);
 				cover[targetx][targety] = 2;
 				return;
 			}
@@ -881,9 +928,12 @@ void chechClick(ExMessage &msg)
 			Chess chess(targetx, targety, Color(::count));
 			chess.drawChess();
 			::count = (::count + 1) % 2;
+
+			drawBoard();
+			FlushBatchDraw();
+
 			if(chess.checkfive())
 			{
-				Sleep(2000);
 				robothumangamestart = false;
 				gameover = true;
 			}
@@ -894,33 +944,41 @@ void chechClick(ExMessage &msg)
 int main()
 {
 	initgraph(scenesize, scenesize);
+	BeginBatchDraw();
+
 	showStartScreen();
-	drawBoard();
+
 	ExMessage msg;
-
-	while(!gameover)
+	while(true)
 	{
-		if(robothumangamestart || robotrobotgamestart)
+		if(gameover)
 		{
-			while(peekmessage(&msg, EM_MOUSE))
-			{
-				chechClick(msg);
-			}
-
-			// AI自动移动逻辑
-			if(robothumangamestart && ::count == 1)
-			{
-				aimove();
-				drawBoard();
-			}
-			else if(robotrobotgamestart)
-			{
-				automatch();
-				drawBoard();
-			}
+			showGameOver();
+			continue;
 		}
+
+		while(peekmessage(&msg, EM_MOUSE | EM_KEY))
+		{
+			if(msg.message == WM_LBUTTONDOWN)
+				chechClick(msg);
+		}
+
+		if(robotrobotgamestart)
+		{
+			automatch();
+			drawBoard();
+			FlushBatchDraw();
+		}
+
+		else if(robothumangamestart && ::count == 1)
+		{
+			aimove();
+		}
+
+		drawBoard();
 		Sleep(10);
 	}
-	showGameOver();
+
+	EndBatchDraw();
 	return 0;
 }

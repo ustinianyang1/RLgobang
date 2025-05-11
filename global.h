@@ -35,7 +35,7 @@ enum Color
 const double attackpreferenceblack = 2;//黑方攻击分倍率
 const double attackpreferencewhite = 1.5;//白方攻击分倍率
 
-const int searchdepth = 4;//搜索深度
+const int searchdepth = 2;//搜索深度
 
 const int specialfive = 1000000;//嵌五
 const int livefour = 900000;//活四
@@ -54,3 +54,5 @@ const int deadone = 1;//冲单
 const int max_branches = 20;//着法分支上限
 
 const double depthdeclinerate = 0.9;//深度衰减倍率
+
+const int UPDATE_RADIUS = 5;  // 更新半径
