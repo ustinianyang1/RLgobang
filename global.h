@@ -2,9 +2,11 @@
 #include <windows.h>
 #include <vector>
 #include <utility>
+
 const int unitsize = 60;
 const int boxsize = 840;
 const int scenesize = 900;
+const int BOARD_SIZE = 15;
 const int radius = unitsize / 2;
 extern bool gameover;
 extern bool robothumangamestart;
@@ -27,6 +29,7 @@ extern std::vector <std::vector<int>>whiteminimaxscore;
 extern std::vector <std::pair<int, int>> history;
 extern int count;
 extern int step;
+
 enum Color
 {
 	black = 0, white = 1
@@ -35,7 +38,7 @@ enum Color
 const double attackpreferenceblack = 1.5;//黑方攻击分倍率
 const double attackpreferencewhite = 1.3;//白方攻击分倍率
 
-const int searchdepth = 3;//搜索深度
+const int searchdepth = 2;//搜索深度
 
 const int specialfive = 1000000;//嵌五
 const int livefour = 900000;//活四

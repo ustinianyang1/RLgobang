@@ -1,6 +1,10 @@
 #pragma once
 #include "global.h"
 #include <string>
+#include <string>
+#include "qlearning.h"
+
+extern QTable qTable;
 
 class Chess
 {
@@ -43,3 +47,5 @@ void automatch();
 void aimove();
 void drawButton(const RECT &rect, const wchar_t *text, bool hover);
 void showThinkingStatus(const wchar_t *message);
+int evaluateQLearning(int player, int curdepth);// ÆÀ¹Àº¯Êý
+void trainQLearning(int numEpisodes);// ÑµÁ·º¯Êý

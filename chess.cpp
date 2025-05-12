@@ -10,6 +10,124 @@
 #include <queue>
 #include <string>
 #include "chess.h"
+#include "qlearning.h"
+#include "global.h"
+
+QTable qTable = initializeQTable();
+
+int evaluateQLearning(int player, int curdepth)
+{
+    int totalScore = 0;
+    for(int x = 0; x < cover.size(); x++)
+    {
+        for(int y = 0; y < cover[0].size(); y++)
+        {
+            if(cover[x][y] == 2)
+            {
+                int action = x * BOARD_SIZE + y;
+                totalScore += getQValue(qTable, cover, action);
+            }
+        }
+    }
+    return totalScore;
+}
+
+void trainQLearning(int numEpisodes)
+{
+    const double learningRate = 0.1;
+    const double discountFactor = 0.9;
+
+    for(int episode = 0; episode < numEpisodes; ++episode)
+    {
+        cover = std::vector<std::vector<int>>(15, std::vector<int>(15, 2));
+        history.clear();
+        step = -1;
+        ::count = 0;
+        gameover = false;
+
+        while(!gameover)
+        {
+            int lastX = -1, lastY = -1;
+            if(!history.empty())
+            {
+                lastX = history.back().first;
+                lastY = history.back().second;
+            }
+            upgradescore(lastX, lastY);
+
+            Node target = minimax(searchdepth, ::count, INT_MIN, INT_MAX);
+
+            if(target.x == -1 || target.y == -1)
+            {
+                int targetx = (cover.size() - 1) / 2, targety = (cover[0].size() - 1) / 2;
+                if(::count == 0)
+                {
+                    for(int x = 0; x < cover.size(); x++)
+                    {
+                        for(int y = 0; y < cover[0].size(); y++)
+                        {
+                            if(cover[x][y] == 2)
+                            {
+                                cover[x][y] = 0;
+                                if(checkfour(x, y) || checkthree(x, y) || checklong(x, y))
+                                    blackscore[x][y] = -1;
+                                cover[x][y] = 2;
+                            }
+                        }
+                    }
+                }
+
+                int highestscore = INT_MIN;
+                for(int x = 0; x < cover.size(); x++)
+                {
+                    for(int y = 0; y < cover[0].size(); y++)
+                    {
+                        if(cover[x][y] == 2)
+                        {
+                            if(::count == 0 && blackscore[x][y] == -1)
+                                continue;
+                            int curscore = (::count == 0 ? blackscore[x][y] : whitescore[x][y]) * (::count == 0 ? attackpreferenceblack : attackpreferencewhite) + (::count == 0 ? whitescore[x][y] : blackscore[x][y]);
+                            if(curscore > highestscore)
+                            {
+                                highestscore = curscore;
+                                targetx = x;
+                                targety = y;
+                            }
+                        }
+                    }
+                }
+
+                if(highestscore == INT_MIN)
+                    std::system("pause");
+                target.x = targetx, target.y = targety;
+            }
+
+            std::vector<std::vector<int>> currentState = cover;
+            int action = target.x * BOARD_SIZE + target.y;
+
+            history.push_back(std::make_pair(target.x, target.y));
+            step++;
+            Chess chess(target.x, target.y, Color(::count));
+            cover[target.x][target.y] = ::count;
+            chess.drawChess();
+            ::count = (::count + 1) % 2;
+
+            if(chess.checkfive())
+            {
+                gameover = true;
+                double reward = (::count == 0) ? -1.0 : 1.0;
+                updateQValue(qTable, currentState, action, reward, cover, learningRate, discountFactor);
+            }
+            else
+            {
+                double reward = 0.0;
+                updateQValue(qTable, currentState, action, reward, cover, learningRate, discountFactor);
+            }
+        }
+    }
+
+    saveQTable(qTable, "qtable.txt");
+}
 
 void showThinkingStatus(const wchar_t *message)
 {
@@ -267,7 +385,7 @@ int evaluate(int player, int curdepth)
 Node minimax(int depth, int player, int alpha, int beta)
 {
     if(depth == 0 || gameover)
-        return Node(evaluate(player, searchdepth - depth), -1, -1);
+        return Node(evaluateQLearning(player, searchdepth - depth), -1, -1);
 
     std::vector<std::pair<int, int>> moves;
     for(int x = 0; x < cover.size(); x++)

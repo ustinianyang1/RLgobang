@@ -4,8 +4,12 @@
 
 int main()
 {
+    qTable = loadQTable("qtable.txt");
+
     initgraph(scenesize, scenesize);
     BeginBatchDraw();
+
+    trainQLearning(1000); // 训练Q - learning模型
 
     showStartScreen();
 

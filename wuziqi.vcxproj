@@ -130,10 +130,12 @@
     <ClCompile Include="chess.cpp" />
     <ClCompile Include="global.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="qlearning.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="chess.h" />
     <ClInclude Include="global.h" />
+    <ClInclude Include="qlearning.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
