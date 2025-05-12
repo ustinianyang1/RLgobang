@@ -12,6 +12,7 @@
 #include "chess.h"
 #include "qlearning.h"
 #include "global.h"
+#include <sstream>
 
 QTable qTable = initializeQTable();
 
@@ -44,6 +45,17 @@ void trainQLearning(int numEpisodes)
         step = -1;
         ::count = 0;
         gameover = false;
+
+        // ÏÔÊ¾µ±Ç°ÑµÁ·ÂÖÊı
+        std::wostringstream oss;
+        oss << L"ÑµÁ·ÂÖÊı: " << episode + 1 << L" / " << numEpisodes;
+        std::wstring message = oss.str();
+
+        settextcolor(RGB(255, 0, 0));
+        settextstyle(20, 0, _T("Î¢ÈíÑÅºÚ"));
+        int textWidth = textwidth(message.c_str());
+        outtextxy(scenesize - 30 - textWidth, scenesize - 200, message.c_str());
+        FlushBatchDraw();
 
         while(!gameover)
         {
@@ -111,6 +123,9 @@ void trainQLearning(int numEpisodes)
             cover[target.x][target.y] = ::count;
             chess.drawChess();
             ::count = (::count + 1) % 2;
+
+            drawBoard(); // »æÖÆÆåÅÌ
+            FlushBatchDraw(); // Ë¢ĞÂÆÁÄ»
 
             if(chess.checkfive())
             {
