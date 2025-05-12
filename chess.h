@@ -1,7 +1,6 @@
 #pragma once
 #include "global.h"
 #include <string>
-#include <string>
 #include "qlearning.h"
 
 extern QTable qTable;
@@ -28,7 +27,7 @@ class Node
     };
 };
 
-// 函数声明
+// 初始化得分向量
 void iniscorevector(std::vector<std::vector<int>> &v);
 void upgradescore(int lastX, int lastY);
 int evaluate(int player, int curdepth);
@@ -47,5 +46,5 @@ void automatch();
 void aimove();
 void drawButton(const RECT &rect, const wchar_t *text, bool hover);
 void showThinkingStatus(const wchar_t *message);
-int evaluateQLearning(int player, int curdepth);// 评估函数
-void trainQLearning(int numEpisodes);// 训练函数
+int evaluateQLearning(int player, int curdepth); // 评估函数
+void trainQLearning(int numEpisodes); // 训练 Q - learning 模型

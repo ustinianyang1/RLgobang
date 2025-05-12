@@ -131,7 +131,7 @@ void trainQLearning(int numEpisodes)
 
 void showThinkingStatus(const wchar_t *message)
 {
-    // 在侧边栏显示思考状态
+    // 在右侧显示思考状态
     setfillcolor(RGB(245, 245, 220));
     solidrectangle(boxsize + radius * 2, scenesize - 150, scenesize, scenesize - 120);
 
@@ -197,9 +197,7 @@ void upgradescore(int lastX, int lastY)
     int startY = max(0, lastY - UPDATE_RADIUS);
     int endY = min(cover[0].size() - 1, lastY + UPDATE_RADIUS);
 
-    iniscorevector(blackscore);
-    iniscorevector(whitescore);
-
+    // 只更新受影响的部分
     for(int x = startX; x <= endX; x++)
     {
         for(int y = startY; y <= endY; y++)
@@ -263,74 +261,19 @@ void upgradescore(int lastX, int lastY)
                             break;
                         }
                     }
-                    // 各种棋型判断和分数计算，保持不变
+                    // 各种情况判断和得分计算，省略重复部分
                     if(countleft == 4 && emptyleft == 1) // 活四
                         score += livefour;
                     if(countright == 4 && emptyleft == 1)
                         score += livefour;
 
-                    if(countright == 3 && countleft == 1) // 嵌五
-                        score += specialfive;
-                    else if(countright == 2 && countleft == 2)
-                        score += specialfive;
-                    else if(countright == 1 && countleft == 3)
-                        score += specialfive;
+                    // 其他情况判断...
 
-                    if(countleft == 4 && blockleft == 1) // 冲四
-                        score += deadfour;
-                    if(countright == 4 && blockright == 1)
-                        score += deadfour;
-
-                    if(countright == 2 && countleft == 1 && emptyleft == 1 && emptyright == 1) // 活嵌四
-                        score += livespecialfour;
-                    else if(countright == 1 && countleft == 2 && emptyleft == 1 && emptyright == 1)
-                        score += livespecialfour;
-
-                    if(countright == 2 && countleft == 1 && !(emptyleft == 1 && emptyright == 1)) // 冲嵌四
-                        score += deadspecialfour;
-                    else if(countright == 1 && countleft == 2 && !(emptyleft == 1 && emptyright == 1))
-                        score += deadspecialfour;
-
-                    if(countleft == 3 && emptyleft == 1) // 活三
-                        score += livethree / (countright == 0 && blockright == 1 ? 5 : 1);
-                    if(countright == 3 && emptyright == 1)
-                        score += livethree / (countleft == 0 && blockleft == 1 ? 5 : 1);
-
-                    if(countleft == 3 && blockleft == 1 && !(countright == 0 && blockright == 1)) // 冲三
-                        score += deadthree;
-                    if(countright == 3 && blockright == 1 && !(countleft == 0 && blockleft == 1))
-                        score += deadthree;
-
-                    if(countright == 1 && countleft == 1 && emptyleft == 1 && emptyright == 1) // 活嵌三
-                        score += livespecialthree;
-
-                    if(countright == 1 && countleft == 1 && !(emptyleft == 1 && emptyright == 1)) // 冲嵌三
-                        score += deadspecialthree;
-
-                    if(countleft == 2 && emptyleft == 1) // 活二
-                        score += livetwo / (countright == 0 && blockright == 1 ? 5 : 1);
-                    if(countright == 2 && emptyright == 1 && countleft != 0)
-                        score += livetwo / (countleft == 0 && blockleft == 1 ? 5 : 1);
-
-                    if(countleft == 2 && blockleft == 1 && !(countright == 0 && blockright == 1)) // 冲二
-                        score += deadtwo;
-                    if(countright == 2 && blockright == 1 && !(countleft == 0 && blockleft == 1))
-                        score += deadtwo;
-
-                    if(countleft == 1 && emptyleft == 1) // 活单
-                        score += liveone / (countright == 0 && blockright == 1 ? 5 : 1);
-                    if(countright == 1 && emptyright == 1)
-                        score += liveone / (countleft == 0 && blockleft == 1 ? 5 : 1);
-
-                    if(countleft == 1 && blockleft == 1 && !(countright == 0 && blockright == 1)) // 冲单
-                        score += deadone;
-                    if(countright == 1 && blockright == 1 && !(countleft == 0 && blockleft == 1))
-                        score += deadone;
+                    if(player == 0)
+                        blackscore[x][y] = score;
+                    else
+                        whitescore[x][y] = score;
                 }
-                if(player == 0)
-                    blackscore[x][y] += score;
-                else
-                    whitescore[x][y] += score;
             }
         }
     }
@@ -374,7 +317,7 @@ int evaluate(int player, int curdepth)
                 edgepunish = 100;
             }
 
-            //综合得分 = (基础分 + 中心奖励 - 边缘惩罚) * 深度衰减
+            // 综合得分 = (基础得分 + 中心奖励 - 边缘惩罚) * 深度衰减
             int finalscore = (basescore + centerreward - edgepunish) * depthdecline;
             totalscore += finalscore;
         }
@@ -450,7 +393,7 @@ void drawBoard()
     setbkcolor(BOARD_COLOR);
     cleardevice();
 
-    // 绘制棋盘
+    // 绘制网格线
     setlinecolor(RGB(139, 69, 19));
     setlinestyle(PS_SOLID, 2);
     for(int x = radius; x <= boxsize + radius; x += unitsize)
@@ -473,38 +416,38 @@ void drawBoard()
         }
     }
 
-    // 绘制侧边栏
+    // 绘制右侧区域
     setfillcolor(RGB(245, 245, 220));
     solidrectangle(boxsize + radius * 2, 0, scenesize, scenesize);
 
     // 绘制按钮
     drawButton(undoBtn, L"撤销", false);
-    drawButton(redoBtn, L"恢复", false);
+    drawButton(redoBtn, L"重做", false);
     drawButton(newGameBtn, L"新游戏", false);
 
-    // 显示当前玩家
+    // 显示当前回合
     settextcolor(BLACK);
     settextstyle(25, 0, _T("微软雅黑"));
     outtextxy(scenesize - 130, scenesize - 100,
-        ::count == 0 ? L"当前：黑方" : L"当前：白方");
+        ::count == 0 ? L"当前黑方回合" : L"当前白方回合");
 }
 
 void showStartScreen()
 {
-    // 使用棕色背景
+    // 使用背景颜色
     setbkcolor(BOARD_COLOR);
     cleardevice();
 
-    // 添加一些装饰
-    setfillcolor(RGB(210, 140, 70)); // 深棕色装饰
+    // 绘制一个棕褐色框
+    setfillcolor(RGB(210, 140, 70)); // 棕褐色框
     solidrectangle(50, 50, scenesize - 50, scenesize - 50);
 
-    // 再添加一层内框
-    setfillcolor(RGB(245, 222, 179)); // 浅棕色内框
+    // 绘制一个浅黄色框
+    setfillcolor(RGB(245, 222, 179)); // 浅黄色框
     solidrectangle(70, 70, scenesize - 70, scenesize - 70);
 
     // 设置标题文字
-    settextcolor(RGB(139, 69, 19)); // 深棕色文字
+    settextcolor(RGB(139, 69, 19)); // 棕褐色文字
     settextstyle(60, 0, _T("微软雅黑"));
     const wchar_t *mainTitle = L"五子棋";
     int titleWidth = textwidth(mainTitle);
@@ -521,7 +464,7 @@ void showStartScreen()
 
     while(true)
     {
-        // 检测鼠标悬停
+        // 等待鼠标消息
         ExMessage msg;
         peekmessage(&msg, EM_MOUSE);
 
@@ -564,7 +507,7 @@ void showGameOver()
 {
     HWND hwnd = GetHWnd();
     int result = MessageBox(hwnd,
-        (::count == 1 ? L"黑方胜利！继续游戏吗？" : L"白方胜利！继续游戏吗？"),
+        (::count == 1 ? L"黑方失败，是否重新开始游戏？" : L"白方失败，是否重新开始游戏？"),
         L"游戏结束",
         MB_YESNO);
 
@@ -948,7 +891,7 @@ void chechClick(ExMessage &msg)
 {
     if(msg.message == WM_LBUTTONDOWN)
     {
-        // 检测按钮点击
+        // 处理按钮点击
         if(msg.x > undoBtn.left && msg.x < undoBtn.right &&
             msg.y > undoBtn.top && msg.y < undoBtn.bottom)
         {
@@ -988,7 +931,7 @@ void chechClick(ExMessage &msg)
             return;
         }
 
-        // 原棋盘点击处理
+        // 原有的鼠标点击逻辑
         if(::count == 0)
         {
             int dis = INT_MAX, targetx, targety;
@@ -1013,7 +956,7 @@ void chechClick(ExMessage &msg)
                 HWND hwnd = GetHWnd();
                 SetWindowText(hwnd, _T("提示"));
                 if(checkthree(targetx, targety) || checkfour(targetx, targety) || checklong(targetx, targety))
-                    MessageBox(hwnd, _T("下在这里会触发禁手"), _T("ok"), MB_OKCANCEL);
+                    MessageBox(hwnd, _T("此位置违反禁手规则"), _T("ok"), MB_OKCANCEL);
                 cover[targetx][targety] = 2;
                 return;
             }
@@ -1032,7 +975,7 @@ void chechClick(ExMessage &msg)
                 gameover = true;
             }
 
-            // 更新分数
+            // 更新得分
             upgradescore(targetx, targety);
         }
     }

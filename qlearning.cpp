@@ -3,74 +3,65 @@
 #include <cmath>
 #include <sstream>
 
-// 初始化Q表
+// 初始化 QTable
 QTable initializeQTable()
 {
-    int stateSize = std::pow(3, BOARD_SIZE * BOARD_SIZE); // 每个格子有3种状态（空、黑、白）
-    int actionSize = BOARD_SIZE * BOARD_SIZE;
-    return QTable(stateSize, std::vector<double>(actionSize, 0.0));
+    return QTable();
 }
 
-// 将状态转换为整数索引
-int stateToIndex(const std::vector<std::vector<int>> &state)
-{
-    int index = 0;
-    int power = 1;
-    for(int i = 0; i < BOARD_SIZE; ++i)
-    {
-        for(int j = 0; j < BOARD_SIZE; ++j)
-        {
-            index += state[i][j] * power;
-            power *= 3;
-        }
-    }
-    return index;
-}
-
-// 根据状态和动作获取Q值
+// 根据状态和动作获取 Q 值
 double getQValue(const QTable &qTable, const std::vector<std::vector<int>> &state, int action)
 {
-    int stateIndex = stateToIndex(state);
-    return qTable[stateIndex][action];
+    auto it = qTable.find({state, action});
+    if(it != qTable.end())
+    {
+        return it->second;
+    }
+    return 0.0;
 }
 
-// 更新Q值
+// 更新 Q 值
 void updateQValue(QTable &qTable, const std::vector<std::vector<int>> &state, int action, double reward, const std::vector<std::vector<int>> &nextState, double learningRate, double discountFactor)
 {
-    int stateIndex = stateToIndex(state);
-    int nextStateIndex = stateToIndex(nextState);
-
     double maxQNext = 0.0;
     for(int a = 0; a < BOARD_SIZE * BOARD_SIZE; ++a)
     {
-        if(qTable[nextStateIndex][a] > maxQNext)
+        double qNext = getQValue(qTable, nextState, a);
+        if(qNext > maxQNext)
         {
-            maxQNext = qTable[nextStateIndex][a];
+            maxQNext = qNext;
         }
     }
 
-    qTable[stateIndex][action] += learningRate * (reward + discountFactor * maxQNext - qTable[stateIndex][action]);
+    auto key = std::make_pair(state, action);
+    qTable[key] += learningRate * (reward + discountFactor * maxQNext - qTable[key]);
 }
 
-// 保存Q表到文件
+// 保存 QTable 到文件
 void saveQTable(const QTable &qTable, const std::string &filename)
 {
     std::ofstream file(filename);
     if(file.is_open())
     {
-        for(const auto &row : qTable)
+        for(const auto &pair : qTable)
         {
-            for(double value : row)
+            const auto &state = pair.first.first;
+            int action = pair.first.second;
+            double value = pair.second;
+            for(const auto &row : state)
             {
-                file << value << " ";
+                for(int val : row)
+                {
+                    file << val << " ";
+                }
             }
-            file << std::endl;
+            file << action << " " << value << std::endl;
         }
         file.close();
     }
 }
 
-// 加载Q表从文件
+// 从文件加载 QTable
 QTable loadQTable(const std::string &filename)
 {
     QTable qTable;
@@ -80,14 +71,19 @@ QTable loadQTable(const std::string &filename)
         std::string line;
         while(std::getline(file, line))
         {
-            std::vector<double> row;
             std::stringstream ss(line);
-            double value;
-            while(ss >> value)
+            std::vector<std::vector<int>> state(BOARD_SIZE, std::vector<int>(BOARD_SIZE));
+            for(int i = 0; i < BOARD_SIZE; ++i)
             {
-                row.push_back(value);
+                for(int j = 0; j < BOARD_SIZE; ++j)
+                {
+                    ss >> state[i][j];
+                }
             }
-            qTable.push_back(row);
+            int action;
+            double value;
+            ss >> action >> value;
+            qTable[{state, action}] = value;
         }
         file.close();
     }

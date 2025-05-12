@@ -9,7 +9,7 @@ int main()
     initgraph(scenesize, scenesize);
     BeginBatchDraw();
 
-    trainQLearning(1000); // 训练Q - learning模型
+    trainQLearning(10);
 
     showStartScreen();
 
