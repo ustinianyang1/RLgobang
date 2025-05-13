@@ -1,23 +1,42 @@
-#include "global.h"
+ï»¿#include "global.h"
+
+QTable qTable;
+
 
 bool gameover = false;
 bool robothumangamestart = false;
 bool robotrobotgamestart = false;
 
-// °´Å¥ÇøÓò
-RECT undoBtn = {scenesize - 120, 20, scenesize - 20, 60};
-RECT redoBtn = {scenesize - 120, 80, scenesize - 20, 120};
-RECT newGameBtn = {scenesize - 120, 140, scenesize - 20, 180};
-COLORREF BOARD_COLOR = RGB(255, 153, 51);
-COLORREF BTN_COLOR = RGB(70, 130, 180);
-COLORREF BTN_HOVER_COLOR = RGB(100, 149, 237);
 
-std::vector<std::vector<int>> cover(15, std::vector<int>(15, 2)); // 0->black, 1->white, 2->empty
-std::vector<std::vector<int>> historyHeuristic(15, std::vector<int>(15, 0)); // ÀúÊ·Æô·¢Ê½
-std::vector<std::vector<int>> blackscore(15, std::vector<int>(15, 0));
-std::vector<std::vector<int>> whitescore(15, std::vector<int>(15, 0));
-std::vector<std::vector<int>> blackminimaxscore(15, std::vector<int>(15, 0));
-std::vector<std::vector<int>> whiteminimaxscore(15, std::vector<int>(15, 0));
+std::deque<Experience> replay_buffer;
+
+
+std::vector<std::vector<int>> cover(BOARD_SIZE, std::vector<int>(BOARD_SIZE, 2));
+std::vector<std::vector<int>> blackscore(BOARD_SIZE, std::vector<int>(BOARD_SIZE, 0));
+std::vector<std::vector<int>> whitescore(BOARD_SIZE, std::vector<int>(BOARD_SIZE, 0));
+std::vector<std::vector<int>> historyHeuristic(BOARD_SIZE, std::vector<int>(BOARD_SIZE, 0));
 std::vector<std::pair<int, int>> history;
-int count = 0;
-int step = -1;
+int current_player = 0;
+int step_count = -1;
+
+
+const GameButton undoBtn = {
+    SCENESIZE - 120, 20,
+    SCENESIZE - 20, 60,
+    L"ï¿½ï¿½ï¿½ï¿½"
+};
+const GameButton redoBtn = {
+    SCENESIZE - 120, 80,
+    SCENESIZE - 20, 120,
+    L"ï¿½ï¿½ï¿½ï¿½"
+};
+const GameButton newGameBtn = {
+    SCENESIZE - 120, 140,
+    SCENESIZE - 20, 180,
+    L"ï¿½ï¿½ï¿½ï¿½Ï·"
+};
+
+
+const COLORREF BOARD_COLOR = RGB(255, 153, 51);    
+const COLORREF BTN_COLOR = RGB(70, 130, 180);      
+const COLORREF BTN_HOVER_COLOR = RGB(100, 149, 237);// ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½Í£

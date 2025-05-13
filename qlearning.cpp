@@ -1,91 +1,158 @@
-#include "qlearning.h"
-#include "global.h"
+ï»¿#include "qlearning.h"
+#include "chess.h"
+#include <fstream>
+#include <random>
+#include <algorithm>
 #include <cmath>
-#include <sstream>
 
-// ³õÊ¼»¯ QTable
-QTable initializeQTable()
+QTable initQTable()
 {
     return QTable();
 }
 
-// ¸ù¾Ý×´Ì¬ºÍ¶¯×÷»ñÈ¡ Q Öµ
-double getQValue(const QTable &qTable, const std::vector<std::vector<int>> &state, int action)
+double getQValue(const QTable &table, const std::vector<std::vector<int>> &state, int action)
 {
-    auto it = qTable.find({state, action});
-    if(it != qTable.end())
-    {
-        return it->second;
-    }
-    return 0.0;
+    auto key = std::make_pair(state, action);
+    auto it = table.find(key);
+    return (it != table.end()) ? it->second : 0.0;
 }
 
-// ¸üÐÂ Q Öµ
-void updateQValue(QTable &qTable, const std::vector<std::vector<int>> &state, int action, double reward, const std::vector<std::vector<int>> &nextState, double learningRate, double discountFactor)
+void updateQValue(QTable &table, const std::vector<std::vector<int>> &state,
+    int action, double reward, const std::vector<std::vector<int>> &nextState)
 {
-    double maxQNext = 0.0;
+    
+    double maxNextQ = 0.0;
     for(int a = 0; a < BOARD_SIZE * BOARD_SIZE; ++a)
     {
-        double qNext = getQValue(qTable, nextState, a);
-        if(qNext > maxQNext)
-        {
-            maxQNext = qNext;
-        }
+        maxNextQ = max(maxNextQ, getQValue(table, nextState, a));
     }
 
-    auto key = std::make_pair(state, action);
-    qTable[key] += learningRate * (reward + discountFactor * maxQNext - qTable[key]);
+    
+    QKey key = {state, action};
+    double currentQ = getQValue(table, state, action);
+    double newQ = currentQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxNextQ - currentQ);
+    table[key] = newQ;
+
+    
+    if(replay_buffer.size() >= REPLAY_BUFFER_SIZE)
+    {
+        replay_buffer.pop_front();
+    }
+    replay_buffer.emplace_back(state, action, reward, nextState);
 }
 
-// ±£´æ QTable µ½ÎÄ¼þ
-void saveQTable(const QTable &qTable, const std::string &filename)
+void saveQTable(const QTable &table, const std::string &path)
 {
-    std::ofstream file(filename);
-    if(file.is_open())
+    std::ofstream file(path, std::ios::binary);
+    for(const auto &[key, value] : table)
     {
-        for(const auto &pair : qTable)
+        const auto &[state, action] = key;
+        
+        for(const auto &row : state)
         {
-            const auto &state = pair.first.first;
-            int action = pair.first.second;
-            double value = pair.second;
-            for(const auto &row : state)
-            {
-                for(int val : row)
-                {
-                    file << val << " ";
-                }
-            }
-            file << action << " " << value << std::endl;
+            for(int val : row) file.write((char *)&val, sizeof(int));
         }
-        file.close();
+        
+        file.write((char *)&action, sizeof(int));
+        file.write((char *)&value, sizeof(double));
     }
 }
 
-// ´ÓÎÄ¼þ¼ÓÔØ QTable
-QTable loadQTable(const std::string &filename)
+QTable loadQTable(const std::string &path)
 {
-    QTable qTable;
-    std::ifstream file(filename);
-    if(file.is_open())
+    QTable table;
+    std::ifstream file(path, std::ios::binary);
+    while(file)
     {
-        std::string line;
-        while(std::getline(file, line))
+        std::vector<std::vector<int>> state(BOARD_SIZE, std::vector<int>(BOARD_SIZE));
+        for(auto &row : state)
         {
-            std::stringstream ss(line);
-            std::vector<std::vector<int>> state(BOARD_SIZE, std::vector<int>(BOARD_SIZE));
-            for(int i = 0; i < BOARD_SIZE; ++i)
+            for(int &val : row) file.read((char *)&val, sizeof(int));
+        }
+        int action;
+        double value;
+        file.read((char *)&action, sizeof(int));
+        file.read((char *)&value, sizeof(double));
+        table[{state, action}] = value;
+    }
+    return table;
+}
+
+void trainQLearning(QTable &qtable, int episodes)
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> randProb(0.0, 1.0);
+
+    for(int ep = 0; ep < episodes; ++ep)
+    {
+        gameover = false;
+        
+        std::fill(cover.begin(), cover.end(), std::vector<int>(BOARD_SIZE, 2));
+        history.clear();
+        current_player = 0;
+
+        
+        double epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * std::exp(-ep / (episodes * EPSILON_DECAY));
+
+        while(!gameover)
+        {
+            std::vector<std::vector<int>> currentState = cover;
+            int action = -1;
+
+            
+            if(randProb(gen) < epsilon)
             {
-                for(int j = 0; j < BOARD_SIZE; ++j)
+                std::vector<std::pair<int, int>> validMoves;
+                for(int x = 0; x < BOARD_SIZE; ++x)
                 {
-                    ss >> state[i][j];
+                    for(int y = 0; y < BOARD_SIZE; ++y)
+                    {
+                        if(cover[x][y] == 2) validMoves.emplace_back(x, y);
+                    }
+                }
+                if(!validMoves.empty())
+                {
+                    std::shuffle(validMoves.begin(), validMoves.end(), gen);
+                    auto [x, y] = validMoves.front();
+                    action = x * BOARD_SIZE + y;
                 }
             }
-            int action;
-            double value;
-            ss >> action >> value;
-            qTable[{state, action}] = value;
+            else
+            {
+                Node node = minimax(SEARCH_DEPTH, current_player, INT_MIN, INT_MAX);
+                action = node.x * BOARD_SIZE + node.y;
+            }
+
+            
+            if(action != -1)
+            {
+                int x = action / BOARD_SIZE, y = action % BOARD_SIZE;
+                cover[x][y] = current_player;
+                history.emplace_back(x, y);
+
+                
+                double reward = 0.0;
+                if(checkWin(x, y))
+                {
+                    reward = (current_player == 0) ? 1.0 : -1.0;
+                    gameover = true;
+                }
+
+                
+                updateQValue(qtable, currentState, action, reward, cover);
+
+                
+                current_player = 1 - current_player;
+
+                
+                drawBoard();
+                FlushBatchDraw();
+                Sleep(200); 
+            }
         }
-        file.close();
+
+        
+        if(ep % 10 == 9) saveQTable(qtable, "qtable_ep" + std::to_string(ep) + ".bin");
     }
-    return qTable;
 }

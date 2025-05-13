@@ -1,60 +1,89 @@
-#pragma once
+ï»¿#pragma once
 #include <windows.h>
 #include <vector>
 #include <utility>
+#include <deque>
+#include <string>
+#include "qlearning.h"
+#include <unordered_map>
 
-const int unitsize = 60;
-const int boxsize = 840;
-const int scenesize = 900;
-const int BOARD_SIZE = 15;
-const int radius = unitsize / 2;
-extern bool gameover;
-extern bool robothumangamestart;
-extern bool robotrobotgamestart;
-
-// °´Å¥ÇøÓò
-extern RECT undoBtn;
-extern RECT redoBtn;
-extern RECT newGameBtn;
-extern COLORREF BOARD_COLOR;
-extern COLORREF BTN_COLOR;
-extern COLORREF BTN_HOVER_COLOR;
-
-extern std::vector <std::vector<int>> cover;
-extern std::vector <std::vector<int>> historyHeuristic;
-extern std::vector <std::vector<int>> blackscore;
-extern std::vector <std::vector<int>> whitescore;
-extern std::vector <std::vector<int>> blackminimaxscore;
-extern std::vector <std::vector<int>> whiteminimaxscore;
-extern std::vector <std::pair<int, int>> history;
-extern int count;
-extern int step;
-enum Color
+enum class Color
 {
-    black = 0, white = 1
+	Black = 0, White = 1, Empty = 2
 };
 
-const double attackpreferenceblack = 1.5; // ºÚ·½¹¥»÷Æ«ºÃ
-const double attackpreferencewhite = 1.3; // °×·½¹¥»÷Æ«ºÃ
 
-const int searchdepth = 2; // ËÑË÷Éî¶È¸ÄÎª2
+const int BOARD_SIZE = 15;          
+const int UNIT_SIZE = 60;           
+const int BOXSIZE = 840;            
+const int SCENESIZE = 900;          
+const int RADIUS = UNIT_SIZE / 2;   
+const int UPDATE_RADIUS = 5;        
 
-const int specialfive = 1000000; // ÌØÊâÎå×Ó
-const int livefour = 900000; // »îËÄ
-const int deadfour = 300000; // ËÀËÄ
-const int livespecialfour = 10010; // »îÌØÊâËÄ
-const int deadspecialfour = 110; // ËÀÌØÊâËÄ
-const int livethree = 10000; // »îÈý
-const int deadthree = 100; // ËÀÈý
-const int livespecialthree = 105; // »îÌØÊâÈý
-const int deadspecialthree = 35; // ËÀÌØÊâÈý
-const int livetwo = 100; // »î¶þ
-const int deadtwo = 5; // ËÀ¶þ
-const int liveone = 20; // »îÒ»
-const int deadone = 1; // ËÀÒ»
 
-const int max_branches = 15; // ×î´ó·ÖÖ§Êý
+const double LEARNING_RATE = 0.1;    
+const double DISCOUNT_FACTOR = 0.9;  
+const int REPLAY_BUFFER_SIZE = 20000;
+const int BATCH_SIZE = 32;           
+const double EPSILON_START = 0.9;    
+const double EPSILON_END = 0.1;      
+const double EPSILON_DECAY = 0.995;  
 
-const double depthdeclinerate = 0.8; // Éî¶ÈË¥¼õÂÊ
 
-const int UPDATE_RADIUS = 5;  // ¸üÐÂ°ë¾¶
+const int SEARCH_DEPTH = 3;          
+const double ATTACK_BLACK = 1.5;     
+const double ATTACK_WHITE = 1.3;     
+
+
+const int SPECIAL_FIVE = 1000000;    
+const int LIVE_FOUR = 900000;        
+const int DEAD_FOUR = 300000;        
+const int LIVE_SPECIAL_FOUR = 10050; 
+const int DEAD_SPECIAL_FOUR = 105; 
+const int LIVE_THREE = 10000;        
+const int DEAD_THREE = 100;          
+const int LIVE_SPECIAL_THREE = 105;       
+const int DEAD_SPECIAL_THREE = 10;       
+const int LIVE_TWO = 100;            
+const int DEAD_TWO = 5;              
+const int LIVE_ONE = 20;             
+const int DEAD_ONE = 1;              
+
+
+extern bool gameover;                
+extern bool robothumangamestart;     
+extern bool robotrobotgamestart;     
+
+
+using Experience = std::tuple<std::vector<std::vector<int>>, int, double, std::vector<std::vector<int>> >;
+extern std::deque<Experience> replay_buffer;  
+
+
+extern std::vector<std::vector<int>> cover;   
+extern std::vector<std::vector<int>> blackscore;  
+extern std::vector<std::vector<int>> whitescore;  
+extern std::vector<std::pair<int, int>> history;  
+extern int current_player;           
+extern int step_count;               
+
+
+struct GameButton
+{
+	int left;
+	int top;
+	int right;
+	int bottom;
+	const wchar_t *text;
+};
+extern const GameButton undoBtn;     
+extern const GameButton redoBtn;     
+extern const GameButton newGameBtn;  
+
+
+extern const COLORREF BOARD_COLOR;   
+extern const COLORREF BTN_COLOR;     
+extern const COLORREF BTN_HOVER_COLOR;
+
+const double DEPTH_DECLINE_RATE = 0.8; 
+extern std::vector<std::vector<int>> historyHeuristic; 
+extern QTable qTable; // È«ï¿½ï¿½Qï¿½ï¿½ï¿½ï¿½ï¿½ï¿½

@@ -1,45 +1,49 @@
-#pragma once
-#include <vector>
-#include <fstream>
-#include <string>
+ï»¿#pragma once
 #include <unordered_map>
-#include <utility>
-#include "global.h"
+#include <functional>
+#include <string>
+#include <vector>
 
-// ¶¨Òå×´Ì¬ - ¶¯×÷¶ÔµÄÀàÐÍ
-using StateActionPair = std::pair<std::vector<std::vector<int>>, int>;
+using QKey = std::pair<std::vector<std::vector<int>>, int>;
 
-// ×Ô¶¨Òå¹þÏ£º¯Êý
-struct StateActionHash
+namespace std
 {
-    size_t operator()(const StateActionPair &pair) const
+    template<>
+    struct hash<std::vector<std::vector<int>>>
     {
-        size_t seed = pair.second;
-        for(const auto &row : pair.first)
+        size_t operator()(const std::vector<std::vector<int>> &state) const noexcept
         {
-            for(int val : row)
+            size_t seed = 0;
+            for(const auto &row : state)
             {
-                seed ^= val + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+                for(int val : row)
+                {
+                    seed ^= hash<int>()(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+                }
             }
+            return seed;
         }
-        return seed;
-    }
-};
+    };
 
-// ¶¨Òå QTable Îª¹þÏ£±í
-using QTable = std::unordered_map<StateActionPair, double, StateActionHash>;
+    template<>
+    struct hash<QKey>
+    {
+        size_t operator()(const QKey &key) const noexcept
+        {
+            size_t h1 = hash<std::vector<std::vector<int>>>()(key.first);
+            size_t h2 = hash<int>()(key.second);
+            return h1 ^ (h2 << 1);
+        }
+    };
+}
 
-// ³õÊ¼»¯ QTable
-QTable initializeQTable();
+using QTable = std::unordered_map<QKey, double>;
 
-// ¸ù¾Ý×´Ì¬ºÍ¶¯×÷»ñÈ¡ Q Öµ
-double getQValue(const QTable &qTable, const std::vector<std::vector<int>> &state, int action);
 
-// ¸üÐÂ Q Öµ
-void updateQValue(QTable &qTable, const std::vector<std::vector<int>> &state, int action, double reward, const std::vector<std::vector<int>> &nextState, double learningRate, double discountFactor);
-
-// ±£´æ QTable µ½ÎÄ¼þ
-void saveQTable(const QTable &qTable, const std::string &filename);
-
-// ´ÓÎÄ¼þ¼ÓÔØ QTable
-QTable loadQTable(const std::string &filename);
+QTable initQTable();
+double getQValue(const QTable &table, const std::vector<std::vector<int>> &state, int action);
+void updateQValue(QTable &table, const std::vector<std::vector<int>> &state,
+    int action, double reward, const std::vector<std::vector<int>> &nextState);
+void saveQTable(const QTable &table, const std::string &path);
+QTable loadQTable(const std::string &path);
+void trainQLearning(QTable &qtable, int episodes);

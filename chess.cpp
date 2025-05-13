@@ -1,203 +1,83 @@
-#include <graphics.h>  
-#include <conio.h>  
-#include <windows.h>
-#include <climits>  
-#include <cmath>  
-#include <iostream>
-#include <easyx.h>
-#include <vector>
-#include <algorithm>
-#include <queue>
-#include <string>
-#include "chess.h"
-#include "qlearning.h"
+ï»¿#include "chess.h"
 #include "global.h"
+#include "qlearning.h"
+#include <graphics.h>
 #include <sstream>
+#include <cmath>
+#include <climits> 
+#include <algorithm>
+#include <fstream>
+#include <random> 
+#include <queue>
 
-QTable qTable = initializeQTable();
+#define BLACK RGB(0, 0, 0)
+#define WHITE RGB(255, 255, 255)
 
-int evaluateQLearning(int player, int curdepth)
+void Chess::draw() const
 {
-    int totalScore = 0;
-    for(int x = 0; x < cover.size(); x++)
+    setfillcolor(color == Color::Black ? BLACK : WHITE);
+    setlinecolor(color == Color::Black ? RGB(50, 50, 50) : RGB(200, 200, 200));
+    solidcircle(x * UNIT_SIZE + RADIUS, y * UNIT_SIZE + RADIUS, RADIUS - 5);
+}
+
+bool checkWin(int x, int y)
+{
+    int playerColor = cover[x][y];
+    if(playerColor == 2)
+        return false;
+
+    const int dx[] = {1, 0, 1, 1};
+    const int dy[] = {0, 1, 1, -1};
+
+    for(int dir = 0; dir < 4; dir++)
     {
-        for(int y = 0; y < cover[0].size(); y++)
+        int count = 1;
+        for(int step = 1; ; step++)
         {
-            if(cover[x][y] == 2)
-            {
-                int action = x * BOARD_SIZE + y;
-                totalScore += getQValue(qTable, cover, action);
-            }
+            int nx = x + dx[dir] * step;
+            int ny = y + dy[dir] * step;
+            if(nx < 0 || ny < 0 || nx >= BOARD_SIZE || ny >= BOARD_SIZE) break;
+            if(cover[nx][ny] != playerColor) break;
+            count++;
         }
-    }
-    return totalScore;
-}
-
-void trainQLearning(int numEpisodes)
-{
-    const double learningRate = 0.1;
-    const double discountFactor = 0.9;
-
-    for(int episode = 0; episode < numEpisodes; ++episode)
-    {
-        cover = std::vector<std::vector<int>>(15, std::vector<int>(15, 2));
-        history.clear();
-        step = -1;
-        ::count = 0;
-        gameover = false;
-
-        // ÏÔÊ¾µ±Ç°ÑµÁ·ÂÖÊý
-        std::wostringstream oss;
-        oss << L"ÑµÁ·ÂÖÊý: " << episode + 1 << L" / " << numEpisodes;
-        std::wstring message = oss.str();
-
-        settextcolor(RGB(255, 0, 0));
-        settextstyle(20, 0, _T("Î¢ÈíÑÅºÚ"));
-        int textWidth = textwidth(message.c_str());
-        outtextxy(scenesize - 30 - textWidth, scenesize - 200, message.c_str());
-        FlushBatchDraw();
-
-        while(!gameover)
+        for(int step = 1; ; step++)
         {
-            int lastX = -1, lastY = -1;
-            if(!history.empty())
-            {
-                lastX = history.back().first;
-                lastY = history.back().second;
-            }
-            upgradescore(lastX, lastY);
-
-            Node target = minimax(searchdepth, ::count, INT_MIN, INT_MAX);
-
-            if(target.x == -1 || target.y == -1)
-            {
-                int targetx = (cover.size() - 1) / 2, targety = (cover[0].size() - 1) / 2;
-                if(::count == 0)
-                {
-                    for(int x = 0; x < cover.size(); x++)
-                    {
-                        for(int y = 0; y < cover[0].size(); y++)
-                        {
-                            if(cover[x][y] == 2)
-                            {
-                                cover[x][y] = 0;
-                                if(checkfour(x, y) || checkthree(x, y) || checklong(x, y))
-                                    blackscore[x][y] = -1;
-                                cover[x][y] = 2;
-                            }
-                        }
-                    }
-                }
-
-                int highestscore = INT_MIN;
-                for(int x = 0; x < cover.size(); x++)
-                {
-                    for(int y = 0; y < cover[0].size(); y++)
-                    {
-                        if(cover[x][y] == 2)
-                        {
-                            if(::count == 0 && blackscore[x][y] == -1)
-                                continue;
-                            int curscore = (::count == 0 ? blackscore[x][y] : whitescore[x][y]) * (::count == 0 ? attackpreferenceblack : attackpreferencewhite) + (::count == 0 ? whitescore[x][y] : blackscore[x][y]);
-                            if(curscore > highestscore)
-                            {
-                                highestscore = curscore;
-                                targetx = x;
-                                targety = y;
-                            }
-                        }
-                    }
-                }
-
-                if(highestscore == INT_MIN)
-                    std::system("pause");
-                target.x = targetx, target.y = targety;
-            }
-
-            std::vector<std::vector<int>> currentState = cover;
-            int action = target.x * BOARD_SIZE + target.y;
-
-            history.push_back(std::make_pair(target.x, target.y));
-            step++;
-            Chess chess(target.x, target.y, Color(::count));
-            cover[target.x][target.y] = ::count;
-            chess.drawChess();
-            ::count = (::count + 1) % 2;
-
-            drawBoard(); // »æÖÆÆåÅÌ
-            FlushBatchDraw(); // Ë¢ÐÂÆÁÄ»
-
-            if(chess.checkfive())
-            {
-                gameover = true;
-                double reward = (::count == 0) ? -1.0 : 1.0;
-                updateQValue(qTable, currentState, action, reward, cover, learningRate, discountFactor);
-            }
-            else
-            {
-                double reward = 0.0;
-                updateQValue(qTable, currentState, action, reward, cover, learningRate, discountFactor);
-            }
+            int nx = x - dx[dir] * step;
+            int ny = y - dy[dir] * step;
+            if(nx < 0 || ny < 0 || nx >= BOARD_SIZE || ny >= BOARD_SIZE) break;
+            if(cover[nx][ny] != playerColor) break;
+            count++;
         }
+        if(count >= 5) return true;
     }
-
-    saveQTable(qTable, "qtable.txt");
+    return false;
 }
 
-void showThinkingStatus(const wchar_t *message)
+void initScore(std::vector<std::vector<int>> &score)
 {
-    // ÔÚÓÒ²àÏÔÊ¾Ë¼¿¼×´Ì¬
-    setfillcolor(RGB(245, 245, 220));
-    solidrectangle(boxsize + radius * 2, scenesize - 150, scenesize, scenesize - 120);
+    const int dx[] = {1, 1, 1, 0, 0, -1, -1, -1};
+    const int dy[] = {0, -1, 1, 1, -1, -1, 0, 1};
 
-    settextcolor(RGB(255, 0, 0));
-    settextstyle(20, 0, _T("Î¢ÈíÑÅºÚ"));
-    int textWidth = textwidth(message);
-    outtextxy(scenesize - 30 - textWidth, scenesize - 150, message);
-
-    FlushBatchDraw();
-}
-
-void drawButton(const RECT &rect, const wchar_t *text, bool hover)
-{
-    setfillcolor(hover ? BTN_HOVER_COLOR : BTN_COLOR);
-    solidroundrect(rect.left, rect.top, rect.right, rect.bottom, 10, 10);
-
-    settextcolor(WHITE);
-    setbkmode(TRANSPARENT);
-    settextstyle(20, 0, _T("Î¢ÈíÑÅºÚ"));
-    int textWidth = textwidth(text);
-    int textHeight = textheight(text);
-    outtextxy(
-        (rect.left + rect.right - textWidth) / 2,
-        (rect.top + rect.bottom - textHeight) / 2,
-        text
-    );
-}
-
-void iniscorevector(std::vector<std::vector<int>> &v)
-{
-    const int dx[8] = {1, 1, 1, 0, 0, -1, -1, -1};
-    const int dy[8] = {0, -1, 1, 1, -1, -1, 0, 1};
     std::queue<std::pair<int, int>> q;
-    std::vector<std::vector<bool>> visited(cover.size(), std::vector<bool>(cover[0].size(), false));
-    q.push({(visited.size() - 1) / 2, (visited[0].size() - 1) / 2});
-    v[(visited.size() - 1) / 2][(visited[0].size() - 1) / 2] = (visited.size() - 1) / 2;
-    visited[(visited.size() - 1) / 2][(visited[0].size() - 1) / 2] = true;
+    std::vector<std::vector<bool>> visited(BOARD_SIZE, std::vector<bool>(BOARD_SIZE, false));
+
+    int center = BOARD_SIZE / 2;
+    score[center][center] = center;
+    q.push({center, center});
+    visited[center][center] = true;
 
     while(!q.empty())
     {
-        auto temp = q.front();
+        auto [x, y] = q.front();
         q.pop();
 
         for(int dir = 0; dir < 8; dir++)
         {
-            int nx = temp.first + dx[dir];
-            int ny = temp.second + dy[dir];
-
-            if(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size() && !visited[nx][ny])
+            int nx = x + dx[dir];
+            int ny = y + dy[dir];
+            if(nx >= 0 && ny >= 0 && nx < BOARD_SIZE && ny < BOARD_SIZE && !visited[nx][ny])
             {
-                v[nx][ny] = max(0, v[temp.first][temp.second] - 1);
+                score[nx][ny] = max(0, score[x][y] - 1);
                 visited[nx][ny] = true;
                 q.push({nx, ny});
             }
@@ -205,34 +85,38 @@ void iniscorevector(std::vector<std::vector<int>> &v)
     }
 }
 
-void upgradescore(int lastX, int lastY)
+
+void updateScores(int lastX, int lastY)
 {
     int startX = max(0, lastX - UPDATE_RADIUS);
-    int endX = min(cover.size() - 1, lastX + UPDATE_RADIUS);
+    int endX = min(BOARD_SIZE - 1, lastX + UPDATE_RADIUS);
     int startY = max(0, lastY - UPDATE_RADIUS);
-    int endY = min(cover[0].size() - 1, lastY + UPDATE_RADIUS);
+    int endY = min(BOARD_SIZE - 1, lastY + UPDATE_RADIUS);
 
-    // Ö»¸üÐÂÊÜÓ°ÏìµÄ²¿·Ö
+    initScore(blackscore);
+    initScore(whitescore);
+
     for(int x = startX; x <= endX; x++)
     {
         for(int y = startY; y <= endY; y++)
         {
-            if(cover[x][y] != 2)
-                continue;
+            if(cover[x][y] != 2) continue;
+
             for(int player = 0; player <= 1; player++)
             {
                 int score = 0;
-                const int dx[4] = {1, 0, 1, 1};
-                const int dy[4] = {0, 1, 1, -1};
-                for(int d = 0; d < 4; d++)
+                const int dx[] = {1, 0, 1, 1};
+                const int dy[] = {0, 1, 1, -1};
+
+                for(int dir = 0; dir < 4; dir++)
                 {
                     int countright = 0;
                     int blockright = 0;
                     int emptyright = 0;
                     for(int step = 1; step <= 5; step++)
                     {
-                        int nx = x + step * dx[d];
-                        int ny = y + step * dy[d];
+                        int nx = x + step * dx[dir];
+                        int ny = y + step * dy[dir];
                         if(nx < 0 || ny < 0 || nx >= cover.size() || ny >= cover[0].size())
                         {
                             blockright++;
@@ -256,8 +140,8 @@ void upgradescore(int lastX, int lastY)
                     int emptyleft = 0;
                     for(int step = 1; step <= 5; step++)
                     {
-                        int nx = x - step * dx[d];
-                        int ny = y - step * dy[d];
+                        int nx = x - step * dx[dir];
+                        int ny = y - step * dy[dir];
                         if(nx < 0 || ny < 0 || nx >= cover.size() || ny >= cover[0].size())
                         {
                             blockleft++;
@@ -276,334 +160,461 @@ void upgradescore(int lastX, int lastY)
                             break;
                         }
                     }
-                    // ¸÷ÖÖÇé¿öÅÐ¶ÏºÍµÃ·Ö¼ÆËã£¬Ê¡ÂÔÖØ¸´²¿·Ö
-                    if(countleft == 4 && emptyleft == 1) // »îËÄ
-                        score += livefour;
+                    if(countleft == 4 && emptyleft == 1)
+                        score += LIVE_FOUR;
                     if(countright == 4 && emptyleft == 1)
-                        score += livefour;
+                        score += LIVE_FOUR;
 
-                    // ÆäËûÇé¿öÅÐ¶Ï...
+                    if(countright == 3 && countleft == 1)
+                        score += SPECIAL_FIVE;
+                    else if(countright == 2 && countleft == 2)
+                        score += SPECIAL_FIVE;
+                    else if(countright == 1 && countleft == 3)
+                        score += SPECIAL_FIVE;
 
-                    if(player == 0)
-                        blackscore[x][y] = score;
-                    else
-                        whitescore[x][y] = score;
+                    if(countleft == 4 && blockleft == 1)
+                        score += DEAD_FOUR;
+                    if(countright == 4 && blockright == 1)
+                        score += DEAD_FOUR;
+
+                    if(countright == 2 && countleft == 1 && emptyleft == 1 && emptyright == 1)
+                        score += LIVE_SPECIAL_FOUR;
+                    else if(countright == 1 && countleft == 2 && emptyleft == 1 && emptyright == 1)
+                        score += LIVE_SPECIAL_FOUR;
+
+                    if(countright == 2 && countleft == 1 && !(emptyleft == 1 && emptyright == 1))
+                        score += DEAD_SPECIAL_FOUR;
+                    else if(countright == 1 && countleft == 2 && !(emptyleft == 1 && emptyright == 1))
+                        score += DEAD_SPECIAL_FOUR;
+
+                    if(countleft == 3 && emptyleft == 1)
+                        score += LIVE_THREE / (countright == 0 && blockright == 1 ? 5 : 1);
+                    if(countright == 3 && emptyright == 1)
+                        score += LIVE_THREE / (countleft == 0 && blockleft == 1 ? 5 : 1);
+
+                    if(countleft == 3 && blockleft == 1 && !(countright == 0 && blockright == 1))
+                        score += DEAD_THREE;
+                    if(countright == 3 && blockright == 1 && !(countleft == 0 && blockleft == 1))
+                        score += DEAD_THREE;
+
+                    if(countright == 1 && countleft == 1 && emptyleft == 1 && emptyright == 1)
+                        score += LIVE_SPECIAL_THREE;
+
+                    if(countright == 1 && countleft == 1 && !(emptyleft == 1 && emptyright == 1))
+                        score += DEAD_SPECIAL_THREE;
+
+                    if(countleft == 2 && emptyleft == 1)
+                        score += LIVE_TWO / (countright == 0 && blockright == 1 ? 5 : 1);
+                    if(countright == 2 && emptyright == 1 && countleft != 0)
+                        score += LIVE_TWO / (countleft == 0 && blockleft == 1 ? 5 : 1);
+
+                    if(countleft == 2 && blockleft == 1 && !(countright == 0 && blockright == 1))
+                        score += DEAD_TWO;
+                    if(countright == 2 && blockright == 1 && !(countleft == 0 && blockleft == 1))
+                        score += DEAD_TWO;
+
+                    if(countleft == 1 && emptyleft == 1)
+                        score += LIVE_ONE / (countright == 0 && blockright == 1 ? 5 : 1);
+                    if(countright == 1 && emptyright == 1)
+                        score += LIVE_ONE / (countleft == 0 && blockleft == 1 ? 5 : 1);
+
+                    if(countleft == 1 && blockleft == 1 && !(countright == 0 && blockright == 1))
+                        score += DEAD_ONE;
+                    if(countright == 1 && blockright == 1 && !(countleft == 0 && blockleft == 1))
+                        score += DEAD_ONE;
                 }
+
+                (player == 0 ? blackscore : whitescore)[x][y] = score;
             }
         }
     }
 }
 
-int evaluate(int player, int curdepth)
+
+int evaluate(int player, int depth)
 {
-    const float depthdecline = std::pow(depthdeclinerate, curdepth);
-    const int center_x = cover.size() / 2;
-    const int center_y = cover[0].size() / 2;
+    float depthFactor = pow(DEPTH_DECLINE_RATE, depth);
+    int total = 0;
 
-    int totalscore = 0;
-
-    std::vector<std::vector<int>> center_dist(cover.size(), std::vector<int>(cover[0].size()));
-    for(int x = 0; x < cover.size(); x++)
+    for(int x = 0; x < BOARD_SIZE; x++)
     {
-        for(int y = 0; y < cover[0].size(); y++)
+        for(int y = 0; y < BOARD_SIZE; y++)
         {
-            center_dist[x][y] = std::abs(x - center_x) + std::abs(y - center_y);
+            if(cover[x][y] != 2) continue;
+
+            int base = (player == 0) ?
+                blackscore[x][y] * ATTACK_BLACK - whitescore[x][y] :
+                whitescore[x][y] * ATTACK_WHITE - blackscore[x][y];
+
+            int center = (BOARD_SIZE - (abs(x - 7) + abs(y - 7))) * 2;
+            int edge = (x < 2 || x>12 || y < 2 || y>12) ? 100 : 0;
+
+            total += (base + center - edge) * depthFactor;
         }
     }
-
-    for(int x = 0; x < cover.size(); x++)
-    {
-        for(int y = 0; y < cover[0].size(); y++)
-        {
-            if(cover[x][y] != 2)
-                continue;
-
-            int basescore = 0;
-            if(player == 0)
-                basescore = blackscore[x][y] * attackpreferenceblack - whitescore[x][y];
-            else
-                basescore = whitescore[x][y] * attackpreferencewhite - blackscore[x][y];
-
-            int centerreward = (cover.size() - center_dist[x][y]) * 2;
-
-            int edgepunish = 0;
-            if(x <= 2 || x >= 12 || y <= 2 || y >= 12)
-            {
-                edgepunish = 100;
-            }
-
-            // ×ÛºÏµÃ·Ö = (»ù´¡µÃ·Ö + ÖÐÐÄ½±Àø - ±ßÔµ³Í·£) * Éî¶ÈË¥¼õ
-            int finalscore = (basescore + centerreward - edgepunish) * depthdecline;
-            totalscore += finalscore;
-        }
-    }
-    return totalscore;
+    return total;
 }
+
 
 Node minimax(int depth, int player, int alpha, int beta)
 {
     if(depth == 0 || gameover)
-        return Node(evaluateQLearning(player, searchdepth - depth), -1, -1);
+        return Node(evaluate(player, depth), -1, -1);
 
     std::vector<std::pair<int, int>> moves;
-    for(int x = 0; x < cover.size(); x++)
-    {
-        for(int y = 0; y < cover[0].size(); y++)
-        {
+    for(int x = 0; x < BOARD_SIZE; x++)
+        for(int y = 0; y < BOARD_SIZE; y++)
             if(cover[x][y] == 2)
-            {
                 moves.emplace_back(x, y);
-            }
-        }
-    }
 
     std::sort(moves.begin(), moves.end(), [&](auto a, auto b)
         {
-            int historyA = historyHeuristic[a.first][a.second];
-            int historyB = historyHeuristic[b.first][b.second];
-            int scoreA = (player == 0 ? blackscore[a.first][a.second] : whitescore[a.first][a.second]) + historyA;
-            int scoreB = (player == 0 ? blackscore[b.first][b.second] : whitescore[b.first][b.second]) + historyB;
-            return player == 0 ? scoreA > scoreB : scoreA < scoreB;
+            return historyHeuristic[a.first][a.second] > historyHeuristic[b.first][b.second];
         });
 
-    Node best = Node((player == 0 ? INT_MIN : INT_MAX), -1, -1);
+    Node best(player == 0 ? INT_MIN : INT_MAX, -1, -1);
 
-    for(auto &move : moves)
+    for(auto [x, y] : moves)
     {
-        int x = move.first, y = move.second;
         cover[x][y] = player;
-
-        Node cur = minimax(depth - 1, (player + 1) % 2, alpha, beta);
+        Node current = minimax(depth - 1, 1 - player, alpha, beta);
         cover[x][y] = 2;
 
         if(player == 0)
         {
-            if(cur.score > best.score)
+            if(current.score > best.score)
             {
-                best = cur;
-                alpha = max(alpha, cur.score);
+                best = current;
+                alpha = max(alpha, current.score);
             }
-            if(alpha >= beta)
-                break;
+            if(alpha >= beta) break;
         }
         else
         {
-            if(cur.score < best.score)
+            if(current.score < best.score)
             {
-                best = cur;
-                beta = min(beta, cur.score);
+                best = current;
+                beta = min(beta, current.score);
             }
-            if(beta <= alpha)
-                break;
+            if(beta <= alpha) break;
         }
     }
-    if(best.x != -1 && depth == searchdepth)
-        historyHeuristic[best.x][best.y] += 1 << depth;
     return best;
 }
 
+
 void drawBoard()
 {
-    // »æÖÆ±³¾°
-    setbkcolor(BOARD_COLOR);
     cleardevice();
 
-    // »æÖÆÍø¸ñÏß
+    
     setlinecolor(RGB(139, 69, 19));
     setlinestyle(PS_SOLID, 2);
-    for(int x = radius; x <= boxsize + radius; x += unitsize)
+    for(int i = 0; i <= BOARD_SIZE; i++)
     {
-        line(x, radius, x, boxsize + radius);
-        line(radius, x, boxsize + radius, x);
+        line(RADIUS + i * UNIT_SIZE, RADIUS,
+            RADIUS + i * UNIT_SIZE, RADIUS + BOXSIZE);
+        line(RADIUS, RADIUS + i * UNIT_SIZE,
+            RADIUS + BOXSIZE, RADIUS + i * UNIT_SIZE);
     }
 
-    // »æÖÆÆå×Ó
-    for(int x = 0; x < cover.size(); x++)
+    
+    for(int x = 0; x < BOARD_SIZE; x++)
     {
-        for(int y = 0; y < cover[0].size(); y++)
+        for(int y = 0; y < BOARD_SIZE; y++)
         {
             if(cover[x][y] != 2)
             {
-                setfillcolor(cover[x][y] == 0 ? BLACK : WHITE);
-                setlinecolor(cover[x][y] == 0 ? RGB(50, 50, 50) : RGB(200, 200, 200));
-                solidcircle(x * unitsize + radius, y * unitsize + radius, radius - 5);
+                Chess(x, y, (Color)cover[x][y]).draw();
             }
         }
     }
 
-    // »æÖÆÓÒ²àÇøÓò
+    
     setfillcolor(RGB(245, 245, 220));
-    solidrectangle(boxsize + radius * 2, 0, scenesize, scenesize);
+    solidrectangle(BOXSIZE + 2 * RADIUS, 0, SCENESIZE, SCENESIZE);
 
-    // »æÖÆ°´Å¥
-    drawButton(undoBtn, L"³·Ïú", false);
-    drawButton(redoBtn, L"ÖØ×ö", false);
-    drawButton(newGameBtn, L"ÐÂÓÎÏ·", false);
+    
+    auto drawButton = [](const GameButton &btn, bool hover)
+        {
+            setfillcolor(hover ? BTN_HOVER_COLOR : BTN_COLOR);
+            solidroundrect(btn.left, btn.top, btn.right, btn.bottom, 10, 10);
+            settextcolor(WHITE);
+            setbkmode(TRANSPARENT);
+            settextstyle(20, 0, _T("Î¢ï¿½ï¿½ï¿½Åºï¿½"));
+            int textWidth = textwidth(btn.text);
+            int textHeight = textheight(btn.text);
+            outtextxy(
+                (btn.left + btn.right - textWidth) / 2,
+                (btn.top + btn.bottom - textHeight) / 2,
+                btn.text
+            );
+        };
 
-    // ÏÔÊ¾µ±Ç°»ØºÏ
+    drawButton(undoBtn, false);
+    drawButton(redoBtn, false);
+    drawButton(newGameBtn, false);
+
+    
     settextcolor(BLACK);
-    settextstyle(25, 0, _T("Î¢ÈíÑÅºÚ"));
-    outtextxy(scenesize - 130, scenesize - 100,
-        ::count == 0 ? L"µ±Ç°ºÚ·½»ØºÏ" : L"µ±Ç°°×·½»ØºÏ");
+    settextstyle(25, 0, _T("Î¢ï¿½ï¿½ï¿½Åºï¿½"));
+    std::wstring status = current_player == 0 ? L"ï¿½Ú·ï¿½ï¿½Øºï¿½" : L"ï¿½×·ï¿½ï¿½Øºï¿½";
+    outtextxy(SCENESIZE - 150, SCENESIZE - 100, status.c_str());
 }
 
-void showStartScreen()
+
+void showThinkingStatus(const std::wstring &msg)
 {
-    // Ê¹ÓÃ±³¾°ÑÕÉ«
-    setbkcolor(BOARD_COLOR);
-    cleardevice();
+    
+    setfillcolor(RGB(245, 245, 220));
+    solidrectangle(BOXSIZE + 2 * RADIUS, SCENESIZE - 150, SCENESIZE, SCENESIZE - 120);
 
-    // »æÖÆÒ»¸ö×ØºÖÉ«¿ò
-    setfillcolor(RGB(210, 140, 70)); // ×ØºÖÉ«¿ò
-    solidrectangle(50, 50, scenesize - 50, scenesize - 50);
+    settextcolor(RGB(255, 0, 0));
+    settextstyle(20, 0, _T("Î¢ï¿½ï¿½ï¿½Åºï¿½"));
+    int textWidth = textwidth(msg.c_str());
+    outtextxy(SCENESIZE - 30 - textWidth, SCENESIZE - 150, msg.c_str());
 
-    // »æÖÆÒ»¸öÇ³»ÆÉ«¿ò
-    setfillcolor(RGB(245, 222, 179)); // Ç³»ÆÉ«¿ò
-    solidrectangle(70, 70, scenesize - 70, scenesize - 70);
+    FlushBatchDraw();
+}
 
-    // ÉèÖÃ±êÌâÎÄ×Ö
-    settextcolor(RGB(139, 69, 19)); // ×ØºÖÉ«ÎÄ×Ö
-    settextstyle(60, 0, _T("Î¢ÈíÑÅºÚ"));
-    const wchar_t *mainTitle = L"Îå×ÓÆå";
-    int titleWidth = textwidth(mainTitle);
-    outtextxy((scenesize - titleWidth) / 2, 150, mainTitle);
 
-    // »æÖÆ¿ªÊ¼°´Å¥
-    RECT startBtn1 = {scenesize / 2 - 100, 350, scenesize / 2 + 100, 400};
-    RECT startBtn2 = {scenesize / 2 - 100, 450, scenesize / 2 + 100, 500};
-
-    ExMessage msg;
-    while(peekmessage(&msg, EM_MOUSE))
+void handleClick(int targetX, int targetY)
+{
+    if(current_player == 0)
     {
-    }
-
-    while(true)
-    {
-        // µÈ´ýÊó±êÏûÏ¢
-        ExMessage msg;
-        peekmessage(&msg, EM_MOUSE);
-
-        drawButton(startBtn1, L"ÈË»ú¶ÔÕ½",
-            msg.x > startBtn1.left && msg.x < startBtn1.right &&
-            msg.y > startBtn1.top && msg.y < startBtn1.bottom);
-
-        drawButton(startBtn2, L"AI¶ÔÕ½",
-            msg.x > startBtn2.left && msg.x < startBtn2.right &&
-            msg.y > startBtn2.top && msg.y < startBtn2.bottom);
-
-        FlushBatchDraw();
-
-        if(msg.message == WM_LBUTTONDOWN)
+        if(targetX >= 0 && targetX < BOARD_SIZE &&
+            targetY >= 0 && targetY < BOARD_SIZE &&
+            cover[targetX][targetY] == 2)
         {
-            if(msg.x > startBtn1.left && msg.x < startBtn1.right &&
-                msg.y > startBtn1.top && msg.y < startBtn1.bottom)
+            cover[targetX][targetY] = current_player;
+            history.emplace_back(targetX, targetY);
+            step_count++;
+
+            Chess chess(targetX, targetY, (Color)current_player);
+            chess.draw();
+
+            if(checkWin(targetX, targetY))
             {
-                robothumangamestart = true;
-                cleardevice();
-                drawBoard();
-                FlushBatchDraw();
-                return;
+                gameover = true;
             }
-            if(msg.x > startBtn2.left && msg.x < startBtn2.right &&
-                msg.y > startBtn2.top && msg.y < startBtn2.bottom)
+            else
             {
-                robotrobotgamestart = true;
-                cleardevice();
-                drawBoard();
-                FlushBatchDraw();
-                return;
+                current_player = 1 - current_player;
+                updateScores(targetX, targetY);
+            }
+
+            drawBoard();
+            FlushBatchDraw();
+        }
+    }
+}
+
+
+void aiMove(QTable &qtable)
+{
+    showThinkingStatus(L"AIË¼ï¿½ï¿½ï¿½ï¿½...");
+
+    int lastX = -1, lastY = -1;
+    if(!history.empty())
+    {
+        lastX = history.back().first;
+        lastY = history.back().second;
+    }
+    updateScores(lastX, lastY);
+
+    Node target = minimax(SEARCH_DEPTH, current_player, INT_MIN, INT_MAX);
+
+    showThinkingStatus(L"");
+
+    if(target.x == -1 || target.y == -1)
+    {
+        int targetX = (BOARD_SIZE - 1) / 2, targetY = (BOARD_SIZE - 1) / 2;
+        if(current_player == 0)
+        {
+            for(int x = 0; x < BOARD_SIZE; x++)
+            {
+                for(int y = 0; y < BOARD_SIZE; y++)
+                {
+                    if(cover[x][y] == 2)
+                    {
+                        cover[x][y] = 0;
+                        if(checkthree(x, y) || checkfour(x, y) || checklong(x, y))
+                            blackscore[x][y] = -1;
+                        cover[x][y] = 2;
+                    }
+                }
             }
         }
-        Sleep(10);
+
+        int highestScore = INT_MIN;
+        for(int x = 0; x < BOARD_SIZE; x++)
+        {
+            for(int y = 0; y < BOARD_SIZE; y++)
+            {
+                if(cover[x][y] == 2)
+                {
+                    if(current_player == 0 && blackscore[x][y] == -1)
+                        continue;
+                    int curScore = (current_player == 0 ? blackscore[x][y] : whitescore[x][y]) * (current_player == 0 ? ATTACK_BLACK : ATTACK_WHITE) + (current_player == 0 ? whitescore[x][y] : blackscore[x][y]);
+                    if(curScore > highestScore)
+                    {
+                        highestScore = curScore;
+                        targetX = x;
+                        targetY = y;
+                    }
+                }
+            }
+        }
+
+        if(highestScore == INT_MIN)
+            std::system("pause");
+        target.x = targetX;
+        target.y = targetY;
     }
-}
 
-void showGameOver()
-{
-    HWND hwnd = GetHWnd();
-    int result = MessageBox(hwnd,
-        (::count == 1 ? L"ºÚ·½Ê§°Ü£¬ÊÇ·ñÖØÐÂ¿ªÊ¼ÓÎÏ·£¿" : L"°×·½Ê§°Ü£¬ÊÇ·ñÖØÐÂ¿ªÊ¼ÓÎÏ·£¿"),
-        L"ÓÎÏ·½áÊø",
-        MB_YESNO);
+    cover[target.x][target.y] = current_player;
+    history.emplace_back(target.x, target.y);
+    step_count++;
 
-    if(result == IDYES)
+    Chess chess(target.x, target.y, (Color)current_player);
+    chess.draw();
+
+    if(checkWin(target.x, target.y))
     {
-        gameover = false;
-        ::count = 0;
-        cover = std::vector<std::vector<int>>(15, std::vector<int>(15, 2));
-        history.clear();
-        step = -1;
-        robothumangamestart = false;
-        robotrobotgamestart = false;
-        cleardevice();
-        drawBoard();
-        FlushBatchDraw();
+        gameover = true;
     }
     else
     {
-        closegraph();
-        exit(0);
+        current_player = 1 - current_player;
+        updateScores(target.x, target.y);
     }
+
+    drawBoard();
+    FlushBatchDraw();
 }
 
-void clearmessagequeue(ExMessage &msg)
+
+void saveGame(const std::string &path)
 {
-    while(peekmessage(&msg, EM_MOUSE | EM_KEY, true));
+    std::ofstream file(path, std::ios::binary);
+    for(const auto &row : cover)
+    {
+        for(int val : row)
+        {
+            file.write((char *)&val, sizeof(int));
+        }
+    }
+    file.write((char *)&current_player, sizeof(int));
+    file.write((char *)&step_count, sizeof(int));
+    for(const auto &[x, y] : history)
+    {
+        file.write((char *)&x, sizeof(int));
+        file.write((char *)&y, sizeof(int));
+    }
+    saveQTable(qTable, "qtable_save.bin");
 }
 
-void Chess::drawChess()
+
+void loadGame(const std::string &path)
 {
-    setfillcolor(this->color == black ? BLACK : WHITE);
-    setlinecolor(this->color == black ? BLACK : WHITE);
-    fillcircle(x * unitsize + radius, y * unitsize + radius, radius - 3);
+    std::ifstream file(path, std::ios::binary);
+    for(auto &row : cover)
+    {
+        for(int &val : row)
+        {
+            file.read((char *)&val, sizeof(int));
+        }
+    }
+    file.read((char *)&current_player, sizeof(int));
+    file.read((char *)&step_count, sizeof(int));
+    history.clear();
+    for(int i = 0; i <= step_count; ++i)
+    {
+        int x, y;
+        file.read((char *)&x, sizeof(int));
+        file.read((char *)&y, sizeof(int));
+        history.emplace_back(x, y);
+    }
+    qTable = loadQTable("qtable_save.bin");
+    drawBoard();
+    FlushBatchDraw();
 }
 
-bool Chess::checkfive()
+
+bool checkthree(int &targetx, int &targety)
 {
+    if(step_count)
+        return false;
+    int line = 0;
     const int dx[4] = {1, 0, 1, 1};
     const int dy[4] = {0, 1, 1, -1};
     for(int d = 0; d < 4; d++)
     {
-        int inrow = 1;
-        for(int step = 1; step < 5; ++step)
+        std::string temp;
+        int nx = targetx, ny = targety;
+        while(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
         {
-            int nx = x + step * dx[d];
-            int ny = y + step * dy[d];
-            if(nx < 0 || ny < 0 || nx >= cover.size() || ny >= cover[0].size() || cover[nx][ny] != int(color))
-                break;
-            ++inrow;
+            nx -= dx[d], ny -= dy[d];
         }
-        for(int step = 1; step < 5; ++step)
+        while(1)
         {
-            int nx = x - step * dx[d];
-            int ny = y - step * dy[d];
-            if(nx < 0 || ny < 0 || nx >= cover.size() || ny >= cover[0].size() || cover[nx][ny] != int(color))
+            nx += dx[d], ny += dy[d];
+            if(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
+                temp.push_back('0' + cover[nx][ny]);
+            else
                 break;
-            ++inrow;
         }
-        if(inrow >= 5)
-            return true;
+        line += checkthreespecial(targetx, targety);
+        if(!temp.empty())
+        {
+            line += findsubstring(temp, "202002");
+            line += findsubstring(temp, "200202");
+        }
     }
+    if(line >= 2)
+        return true;
     return false;
 }
 
-int findsubstring(const std::string &s, const std::string &pattern)
+
+bool checkthreespecial(int &targetx, int &targety)
 {
+    if(step_count)
+        return false;
     int line = 0;
-    size_t pos = 0;
-    while((pos = s.find(pattern, pos)) != std::string::npos)
+    const int dx[4] = {1, 0, 1, 1};
+    const int dy[4] = {0, 1, 1, -1};
+    for(int d = 0; d < 4; d++)
     {
-        line++;
-        pos++;
-        if(pos >= s.size())
-            break;
+        std::string temp;
+        int nx = targetx, ny = targety;
+        while(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
+        {
+            nx -= dx[d], ny -= dy[d];
+        }
+        while(1)
+        {
+            nx += dx[d], ny += dy[d];
+            if(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
+                temp.push_back('0' + cover[nx][ny]);
+            else
+                break;
+        }
+        size_t pos = 0;
+        while((pos = temp.find("20002", pos)) != std::string::npos)
+        {
+            if((pos > 0 && temp[pos - 1] == '2') || (pos + 5 < temp.length() && temp[pos + 5] == '2'))
+                line++;
+            pos++;
+        }
     }
-    return line;
+    return line >= 2;
 }
+
 
 bool checkfour(int &targetx, int &targety)
 {
-    if(::count)
+    if(step_count)
         return false;
     int line = 0;
     const int dx[4] = {1, 0, 1, 1};
@@ -644,78 +655,10 @@ bool checkfour(int &targetx, int &targety)
     return line >= 2;
 }
 
-int checkthreespecial(int &targetx, int &targety)
-{
-    if(::count)
-        return false;
-    int line = 0;
-    const int dx[4] = {1, 0, 1, 1};
-    const int dy[4] = {0, 1, 1, -1};
-    for(int d = 0; d < 4; d++)
-    {
-        std::string temp;
-        int nx = targetx, ny = targety;
-        while(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
-        {
-            nx -= dx[d], ny -= dy[d];
-        }
-        while(1)
-        {
-            nx += dx[d], ny += dy[d];
-            if(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
-                temp.push_back('0' + cover[nx][ny]);
-            else
-                break;
-        }
-        size_t pos = 0;
-        while((pos = temp.find("20002", pos)) != std::string::npos)
-        {
-            if((pos > 0 && temp[pos - 1] == '2') || (pos + 5 < temp.length() && temp[pos + 5] == '2'))
-                line++;
-            pos++;
-        }
-    }
-    return line >= 2;
-}
-
-bool checkthree(int &targetx, int &targety)
-{
-    if(::count)
-        return false;
-    int line = 0;
-    const int dx[4] = {1, 0, 1, 1};
-    const int dy[4] = {0, 1, 1, -1};
-    for(int d = 0; d < 4; d++)
-    {
-        std::string temp;
-        int nx = targetx, ny = targety;
-        while(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
-        {
-            nx -= dx[d], ny -= dy[d];
-        }
-        while(1)
-        {
-            nx += dx[d], ny += dy[d];
-            if(nx >= 0 && ny >= 0 && nx < cover.size() && ny < cover[0].size())
-                temp.push_back('0' + cover[nx][ny]);
-            else
-                break;
-        }
-        line += checkthreespecial(targetx, targety);
-        if(!temp.empty())
-        {
-            line += findsubstring(temp, "202002");
-            line += findsubstring(temp, "200202");
-        }
-    }
-    if(line >= 2)
-        return true;
-    return false;
-}
 
 bool checklong(int &targetx, int &targety)
 {
-    if(::count)
+    if(step_count)
         return false;
     int line = 0;
     const int dx[4] = {1, 0, 1, 1};
@@ -745,253 +688,17 @@ bool checklong(int &targetx, int &targety)
     return false;
 }
 
-void automatch()
+
+int findsubstring(const std::string &s, const std::string &pattern)
 {
-    // ÏÔÊ¾Ë¼¿¼×´Ì¬
-    showThinkingStatus((::count == 0 ? L"ºÚ·½AIË¼¿¼ÖÐ..." : L"°×·½AIË¼¿¼ÖÐ..."));
-
-    int lastX = -1, lastY = -1;
-    if(!history.empty())
+    int line = 0;
+    size_t pos = 0;
+    while((pos = s.find(pattern, pos)) != std::string::npos)
     {
-        lastX = history.back().first;
-        lastY = history.back().second;
+        line++;
+        pos++;
+        if(pos >= s.size())
+            break;
     }
-    upgradescore(lastX, lastY);
-
-    Node target = minimax(searchdepth, ::count, INT_MIN, INT_MAX);
-
-    // Çå³ýË¼¿¼×´Ì¬
-    showThinkingStatus(L"");
-
-    if(target.x == -1 || target.y == -1)
-    {
-        int targetx = (cover.size() - 1) / 2, targety = (cover[0].size() - 1) / 2;
-        if(::count == 0)
-        {
-            for(int x = 0; x < cover.size(); x++)
-            {
-                for(int y = 0; y < cover[0].size(); y++)
-                {
-                    if(cover[x][y] == 2)
-                    {
-                        cover[x][y] = 0;
-                        if(checkfour(x, y) || checkthree(x, y) || checklong(x, y))
-                            blackscore[x][y] = -1;
-                        cover[x][y] = 2;
-                    }
-                }
-            }
-        }
-
-        int highestscore = INT_MIN;
-        for(int x = 0; x < cover.size(); x++)
-        {
-            for(int y = 0; y < cover[0].size(); y++)
-            {
-                if(cover[x][y] == 2)
-                {
-                    if(::count == 0 && blackscore[x][y] == -1)
-                        continue;
-                    int curscore = (::count == 0 ? blackscore[x][y] : whitescore[x][y]) * (::count == 0 ? attackpreferenceblack : attackpreferencewhite) + (::count == 0 ? whitescore[x][y] : blackscore[x][y]);
-                    if(curscore > highestscore)
-                    {
-                        highestscore = curscore;
-                        targetx = x;
-                        targety = y;
-                    }
-                }
-            }
-        }
-
-        if(highestscore == INT_MIN)
-            std::system("pause");
-        target.x = targetx, target.y = targety;
-    }
-
-    history.push_back(std::make_pair(target.x, target.y));
-    step++;
-    Chess chess(target.x, target.y, Color(::count));
-    cover[target.x][target.y] = ::count;
-    chess.drawChess();
-    ::count = (::count + 1) % 2;
-    if(chess.checkfive())
-    {
-        showThinkingStatus(L"");
-        robotrobotgamestart = false;
-        gameover = true;
-    }
-}
-
-void aimove()
-{
-    int lastX = -1, lastY = -1;
-    if(!history.empty())
-    {
-        lastX = history.back().first;
-        lastY = history.back().second;
-    }
-    upgradescore(lastX, lastY);
-
-    // ÏÔÊ¾Ë¼¿¼×´Ì¬
-    showThinkingStatus(L"AIË¼¿¼ÖÐ...");
-    Node target = minimax(searchdepth, ::count, INT_MIN, INT_MAX);
-
-    // Çå³ýË¼¿¼×´Ì¬
-    showThinkingStatus(L"");
-
-    if(target.x == -1 || target.y == -1)
-    {
-        int targetx = (cover.size() - 1) / 2, targety = (cover[0].size() - 1) / 2;
-        if(::count == 0)
-        {
-            for(int x = 0; x < cover.size(); x++)
-            {
-                for(int y = 0; y < cover[0].size(); y++)
-                {
-                    if(cover[x][y] == 2)
-                    {
-                        cover[x][y] = 0;
-                        if(checkfour(x, y) || checkthree(x, y) || checklong(x, y))
-                            blackscore[x][y] = -1;
-                        cover[x][y] = 2;
-                    }
-                }
-            }
-        }
-
-        int highestscore = INT_MIN;
-        for(int x = 0; x < cover.size(); x++)
-        {
-            for(int y = 0; y < cover[0].size(); y++)
-            {
-                if(cover[x][y] == 2)
-                {
-                    if(::count == 0 && blackscore[x][y] == -1)
-                        continue;
-                    int curscore = (::count == 0 ? blackscore[x][y] : whitescore[x][y]) * (::count == 0 ? attackpreferenceblack : attackpreferencewhite) + (::count == 0 ? whitescore[x][y] : blackscore[x][y]);
-                    if(curscore > highestscore)
-                    {
-                        highestscore = curscore;
-                        targetx = x;
-                        targety = y;
-                    }
-                }
-            }
-        }
-
-
-        if(highestscore == INT_MIN)
-            std::system("pause");
-        target.x = targetx, target.y = targety;
-    }
-
-    history.push_back(std::make_pair(target.x, target.y));
-    step++;
-    Chess chess(target.x, target.y, Color(::count));
-    cover[target.x][target.y] = ::count;
-    chess.drawChess();
-    ::count = (::count + 1) % 2;
-    drawBoard();
-    FlushBatchDraw();
-
-    if(chess.checkfive())
-    {
-        showThinkingStatus(L"");
-        robothumangamestart = false;
-        gameover = true;
-    }
-}
-
-void chechClick(ExMessage &msg)
-{
-    if(msg.message == WM_LBUTTONDOWN)
-    {
-        // ´¦Àí°´Å¥µã»÷
-        if(msg.x > undoBtn.left && msg.x < undoBtn.right &&
-            msg.y > undoBtn.top && msg.y < undoBtn.bottom)
-        {
-            if(step >= 0)
-            {
-                cover[history[step].first][history[step].second] = 2;
-                step--;
-                ::count = (::count + 1) % 2;
-                drawBoard();
-                FlushBatchDraw();
-            }
-            return;
-        }
-        if(msg.x > redoBtn.left && msg.x < redoBtn.right &&
-            msg.y > redoBtn.top && msg.y < redoBtn.bottom)
-        {
-            if(!history.empty() && step + 1 < history.size())
-            {
-                step++;
-                cover[history[step].first][history[step].second] = step % 2;
-                ::count = (step + 1) % 2;
-                drawBoard();
-            }
-            return;
-        }
-        if(msg.x > newGameBtn.left && msg.x < newGameBtn.right &&
-            msg.y > newGameBtn.top && msg.y < newGameBtn.bottom)
-        {
-            gameover = false;
-            ::count = 0;
-            cover = std::vector<std::vector<int>>(15, std::vector<int>(15, 2));
-            history.clear();
-            step = -1;
-            cleardevice();
-            drawBoard();
-            FlushBatchDraw();
-            return;
-        }
-
-        // Ô­ÓÐµÄÊó±êµã»÷Âß¼­
-        if(::count == 0)
-        {
-            int dis = INT_MAX, targetx, targety;
-            for(int xpos = radius; xpos <= boxsize + radius; xpos += unitsize)
-            {
-                for(int ypos = radius; ypos <= boxsize + radius; ypos += unitsize)
-                {
-                    int curdis = int(std::pow(msg.x - xpos, 2)) + int(std::pow(msg.y - ypos, 2));
-                    if(curdis < dis)
-                    {
-                        dis = curdis;
-                        targetx = int((xpos - radius) / unitsize);
-                        targety = int((ypos - radius) / unitsize);
-                    }
-                }
-            }
-            if(cover[targetx][targety] != 2) return;
-
-            cover[targetx][targety] = ::count;
-            if(::count == 0 && (checkthree(targetx, targety) || checkfour(targetx, targety) || checklong(targetx, targety)))
-            {
-                HWND hwnd = GetHWnd();
-                SetWindowText(hwnd, _T("ÌáÊ¾"));
-                if(checkthree(targetx, targety) || checkfour(targetx, targety) || checklong(targetx, targety))
-                    MessageBox(hwnd, _T("´ËÎ»ÖÃÎ¥·´½ûÊÖ¹æÔò"), _T("ok"), MB_OKCANCEL);
-                cover[targetx][targety] = 2;
-                return;
-            }
-            history.push_back(std::make_pair(targetx, targety));
-            step++;
-            Chess chess(targetx, targety, Color(::count));
-            chess.drawChess();
-            ::count = (::count + 1) % 2;
-
-            drawBoard();
-            FlushBatchDraw();
-
-            if(chess.checkfive())
-            {
-                robothumangamestart = false;
-                gameover = true;
-            }
-
-            // ¸üÐÂµÃ·Ö
-            upgradescore(targetx, targety);
-        }
-    }
+    return line;
 }
