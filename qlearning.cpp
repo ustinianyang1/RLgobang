@@ -18,22 +18,19 @@ double getQValue(const QTable &table, const std::vector<std::vector<int>> &state
 }
 
 void updateQValue(QTable &table, const std::vector<std::vector<int>> &state,
-    int action, double reward, const std::vector<std::vector<int>> &nextState)
+    int action, double reward, const std::vector<std::vector<int>> &nextState, double learningRate)
 {
-    
     double maxNextQ = 0.0;
     for(int a = 0; a < BOARD_SIZE * BOARD_SIZE; ++a)
     {
         maxNextQ = max(maxNextQ, getQValue(table, nextState, a));
     }
 
-    
     QKey key = {state, action};
     double currentQ = getQValue(table, state, action);
-    double newQ = currentQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxNextQ - currentQ);
+    double newQ = currentQ + learningRate * (reward + DISCOUNT_FACTOR * maxNextQ - currentQ);
     table[key] = newQ;
 
-    
     if(replay_buffer.size() >= REPLAY_BUFFER_SIZE)
     {
         replay_buffer.pop_front();
@@ -47,12 +44,12 @@ void saveQTable(const QTable &table, const std::string &path)
     for(const auto &[key, value] : table)
     {
         const auto &[state, action] = key;
-        
+
         for(const auto &row : state)
         {
             for(int val : row) file.write((char *)&val, sizeof(int));
         }
-        
+
         file.write((char *)&action, sizeof(int));
         file.write((char *)&value, sizeof(double));
     }
@@ -78,6 +75,78 @@ QTable loadQTable(const std::string &path)
     return table;
 }
 
+double getIntermediateReward(int x, int y, int player)
+{
+    double reward = 0.0;
+    const int dx[] = {1, 0, 1, 1};
+    const int dy[] = {0, 1, 1, -1};
+
+    for(int dir = 0; dir < 4; dir++)
+    {
+        int count = 1;
+        int emptyLeft = 0;
+        int emptyRight = 0;
+
+        // 检查右侧
+        for(int step = 1; ; step++)
+        {
+            int nx = x + dx[dir] * step;
+            int ny = y + dy[dir] * step;
+            if(nx < 0 || ny < 0 || nx >= BOARD_SIZE || ny >= BOARD_SIZE) break;
+            if(cover[nx][ny] == player)
+            {
+                count++;
+            }
+            else if(cover[nx][ny] == 2)
+            {
+                emptyRight++;
+                break;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // 检查左侧
+        for(int step = 1; ; step++)
+        {
+            int nx = x - dx[dir] * step;
+            int ny = y - dy[dir] * step;
+            if(nx < 0 || ny < 0 || nx >= BOARD_SIZE || ny >= BOARD_SIZE) break;
+            if(cover[nx][ny] == player)
+            {
+                count++;
+            }
+            else if(cover[nx][ny] == 2)
+            {
+                emptyLeft++;
+                break;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // 根据连子情况给予奖励
+        if(count == 2 && emptyLeft > 0 && emptyRight > 0)
+        {
+            reward += LIVE_TWO_REWARD;
+        }
+        else if(count == 3 && emptyLeft > 0 && emptyRight > 0)
+        {
+            reward += LIVE_THREE_REWARD;
+        }
+        else if(count == 4 && (emptyLeft > 0 || emptyRight > 0))
+        {
+            reward += LIVE_FOUR_REWARD;
+        }
+    }
+
+    return reward;
+}
+
 void trainQLearning(QTable &qtable, int episodes)
 {
     std::random_device rd;
@@ -87,12 +156,10 @@ void trainQLearning(QTable &qtable, int episodes)
     for(int ep = 0; ep < episodes; ++ep)
     {
         gameover = false;
-        
         std::fill(cover.begin(), cover.end(), std::vector<int>(BOARD_SIZE, 2));
         history.clear();
         current_player = 0;
 
-        
         double epsilon = EPSILON_END + (EPSILON_START - EPSILON_END) * std::exp(-ep / (episodes * EPSILON_DECAY));
 
         while(!gameover)
@@ -100,7 +167,6 @@ void trainQLearning(QTable &qtable, int episodes)
             std::vector<std::vector<int>> currentState = cover;
             int action = -1;
 
-            
             if(randProb(gen) < epsilon)
             {
                 std::vector<std::pair<int, int>> validMoves;
@@ -124,35 +190,44 @@ void trainQLearning(QTable &qtable, int episodes)
                 action = node.x * BOARD_SIZE + node.y;
             }
 
-            
             if(action != -1)
             {
                 int x = action / BOARD_SIZE, y = action % BOARD_SIZE;
+                if(current_player == 0 && (checkthree(x, y) || checkfour(x, y) || checklong(x, y)))
+                {
+                    continue;
+                }
                 cover[x][y] = current_player;
                 history.emplace_back(x, y);
 
-                
                 double reward = 0.0;
+                // 添加中心奖励
+                int center = BOARD_SIZE / 2;
+                if(x == center && y == center)
+                {
+                    reward += CENTER_REWARD;
+                }
                 if(checkWin(x, y))
                 {
                     reward = (current_player == 0) ? 1.0 : -1.0;
                     gameover = true;
                 }
+                else
+                {
+                    reward += getIntermediateReward(x, y, current_player);
+                }
+                // 计算学习率
+                double learningRate = LEARNING_RATE_END + (LEARNING_RATE_START - LEARNING_RATE_END) * std::exp(-ep / (episodes * LEARNING_RATE_DECAY));
+                updateQValue(qtable, currentState, action, reward, cover, learningRate);
 
-                
-                updateQValue(qtable, currentState, action, reward, cover);
-
-                
                 current_player = 1 - current_player;
 
-                
                 drawBoard();
                 FlushBatchDraw();
-                Sleep(200); 
+                Sleep(TrainSleepTime);
             }
         }
 
-        
         if(ep % 10 == 9) saveQTable(qtable, "qtable_ep" + std::to_string(ep) + ".bin");
     }
 }

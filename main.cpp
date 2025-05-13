@@ -200,6 +200,7 @@ int main()
 {
     
     initGraphics();
+    //qTable = initQTable();
     qTable = loadQTable("qtable.dat"); 
 
     
@@ -272,7 +273,7 @@ void checkButtonClick(int x, int y)
     {
         try
         {
-            trainQLearning(qTable, 10000); 
+            trainQLearning(qTable, TrainNumber); 
         }
         catch(const std::exception &e)
         {

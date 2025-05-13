@@ -85,7 +85,6 @@ void initScore(std::vector<std::vector<int>> &score)
     }
 }
 
-
 void updateScores(int lastX, int lastY)
 {
     int startX = max(0, lastX - UPDATE_RADIUS);
@@ -230,49 +229,55 @@ void updateScores(int lastX, int lastY)
     }
 }
 
-
-int evaluate(int player, int depth)
-{
-    float depthFactor = pow(DEPTH_DECLINE_RATE, depth);
-    int total = 0;
-
-    for(int x = 0; x < BOARD_SIZE; x++)
-    {
-        for(int y = 0; y < BOARD_SIZE; y++)
-        {
-            if(cover[x][y] != 2) continue;
-
-            int base = (player == 0) ?
-                blackscore[x][y] * ATTACK_BLACK - whitescore[x][y] :
-                whitescore[x][y] * ATTACK_WHITE - blackscore[x][y];
-
-            int center = (BOARD_SIZE - (abs(x - 7) + abs(y - 7))) * 2;
-            int edge = (x < 2 || x>12 || y < 2 || y>12) ? 100 : 0;
-
-            total += (base + center - edge) * depthFactor;
-        }
-    }
-    return total;
-}
-
-
 Node minimax(int depth, int player, int alpha, int beta)
 {
     if(depth == 0 || gameover)
-        return Node(evaluate(player, depth), -1, -1);
+    {
+        std::vector<std::vector<int>> currentState = cover;
+        double maxQ = -std::numeric_limits<double>::infinity();
+        int bestAction = -1;
+        for(int x = 0; x < BOARD_SIZE; ++x)
+        {
+            for(int y = 0; y < BOARD_SIZE; ++y)
+            {
+                if(cover[x][y] == 2)
+                {
+                    int action = x * BOARD_SIZE + y;
+                    double qValue = getQValue(qTable, currentState, action);
+                    if(qValue > maxQ)
+                    {
+                        maxQ = qValue;
+                        bestAction = action;
+                    }
+                }
+            }
+        }
+        int bestX = bestAction / BOARD_SIZE;
+        int bestY = bestAction % BOARD_SIZE;
+        return Node(maxQ, bestX, bestY);
+    }
 
     std::vector<std::pair<int, int>> moves;
-    for(int x = 0; x < BOARD_SIZE; x++)
-        for(int y = 0; y < BOARD_SIZE; y++)
+    for(int x = 0; x < BOARD_SIZE; ++x)
+    {
+        for(int y = 0; y < BOARD_SIZE; ++y)
+        {
             if(cover[x][y] == 2)
+            {
+                if(player == 0 && (checkthree(x, y) || checkfour(x, y) || checklong(x, y)))
+                {
+                    continue;
+                }
                 moves.emplace_back(x, y);
-
+            }
+        }
+    }
     std::sort(moves.begin(), moves.end(), [&](auto a, auto b)
         {
             return historyHeuristic[a.first][a.second] > historyHeuristic[b.first][b.second];
         });
 
-    Node best(player == 0 ? INT_MIN : INT_MAX, -1, -1);
+    Node best(player == 0 ? -std::numeric_limits<int>::infinity() : std::numeric_limits<int>::infinity(), -1, -1);
 
     for(auto [x, y] : moves)
     {
@@ -301,7 +306,6 @@ Node minimax(int depth, int player, int alpha, int beta)
     }
     return best;
 }
-
 
 void drawBoard()
 {
@@ -341,7 +345,7 @@ void drawBoard()
             solidroundrect(btn.left, btn.top, btn.right, btn.bottom, 10, 10);
             settextcolor(WHITE);
             setbkmode(TRANSPARENT);
-            settextstyle(20, 0, _T("΢���ź�"));
+            settextstyle(20, 0, _T("微软雅黑"));
             int textWidth = textwidth(btn.text);
             int textHeight = textheight(btn.text);
             outtextxy(
@@ -354,14 +358,12 @@ void drawBoard()
     drawButton(undoBtn, false);
     drawButton(redoBtn, false);
     drawButton(newGameBtn, false);
-
     
     settextcolor(BLACK);
-    settextstyle(25, 0, _T("΢���ź�"));
-    std::wstring status = current_player == 0 ? L"�ڷ��غ�" : L"�׷��غ�";
+    settextstyle(25, 0, _T("微软雅黑"));
+    std::wstring status = current_player == 0 ? L"黑方回合" : L"白方回合";
     outtextxy(SCENESIZE - 150, SCENESIZE - 100, status.c_str());
 }
-
 
 void showThinkingStatus(const std::wstring &msg)
 {
@@ -377,7 +379,6 @@ void showThinkingStatus(const std::wstring &msg)
     FlushBatchDraw();
 }
 
-
 void handleClick(int targetX, int targetY)
 {
     if(current_player == 0)
@@ -386,6 +387,10 @@ void handleClick(int targetX, int targetY)
             targetY >= 0 && targetY < BOARD_SIZE &&
             cover[targetX][targetY] == 2)
         {
+            if(checkthree(targetX, targetY) || checkfour(targetX, targetY) || checklong(targetX, targetY))
+            {
+                return;
+            }
             cover[targetX][targetY] = current_player;
             history.emplace_back(targetX, targetY);
             step_count++;
@@ -409,10 +414,11 @@ void handleClick(int targetX, int targetY)
     }
 }
 
-
 void aiMove(QTable &qtable)
 {
-    showThinkingStatus(L"AI˼����...");
+    showThinkingStatus(L"AI思考中……");
+    drawBoard(); // 添加棋盘绘制
+    FlushBatchDraw(); // 强制刷新
 
     int lastX = -1, lastY = -1;
     if(!history.empty())
@@ -493,7 +499,6 @@ void aiMove(QTable &qtable)
     FlushBatchDraw();
 }
 
-
 void saveGame(const std::string &path)
 {
     std::ofstream file(path, std::ios::binary);
@@ -513,7 +518,6 @@ void saveGame(const std::string &path)
     }
     saveQTable(qTable, "qtable_save.bin");
 }
-
 
 void loadGame(const std::string &path)
 {
@@ -540,10 +544,9 @@ void loadGame(const std::string &path)
     FlushBatchDraw();
 }
 
-
 bool checkthree(int &targetx, int &targety)
 {
-    if(step_count)
+    if(current_player != 0) 
         return false;
     int line = 0;
     const int dx[4] = {1, 0, 1, 1};
@@ -576,10 +579,9 @@ bool checkthree(int &targetx, int &targety)
     return false;
 }
 
-
 bool checkthreespecial(int &targetx, int &targety)
 {
-    if(step_count)
+    if(current_player != 0) 
         return false;
     int line = 0;
     const int dx[4] = {1, 0, 1, 1};
@@ -611,10 +613,9 @@ bool checkthreespecial(int &targetx, int &targety)
     return line >= 2;
 }
 
-
 bool checkfour(int &targetx, int &targety)
 {
-    if(step_count)
+    if(current_player != 0) 
         return false;
     int line = 0;
     const int dx[4] = {1, 0, 1, 1};
@@ -655,10 +656,9 @@ bool checkfour(int &targetx, int &targety)
     return line >= 2;
 }
 
-
 bool checklong(int &targetx, int &targety)
 {
-    if(step_count)
+    if(current_player != 0) 
         return false;
     int line = 0;
     const int dx[4] = {1, 0, 1, 1};
@@ -687,7 +687,6 @@ bool checklong(int &targetx, int &targety)
     }
     return false;
 }
-
 
 int findsubstring(const std::string &s, const std::string &pattern)
 {

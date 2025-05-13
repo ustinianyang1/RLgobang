@@ -43,7 +43,8 @@ using QTable = std::unordered_map<QKey, double>;
 QTable initQTable();
 double getQValue(const QTable &table, const std::vector<std::vector<int>> &state, int action);
 void updateQValue(QTable &table, const std::vector<std::vector<int>> &state,
-    int action, double reward, const std::vector<std::vector<int>> &nextState);
+    int action, double reward, const std::vector<std::vector<int>> &nextState, double learningRate);
+double getIntermediateReward(int x, int y, int player);
 void saveQTable(const QTable &table, const std::string &path);
 QTable loadQTable(const std::string &path);
 void trainQLearning(QTable &qtable, int episodes);
