@@ -47,4 +47,4 @@ void updateQValue(QTable &table, const std::vector<std::vector<int>> &state,
 double getIntermediateReward(int x, int y, int player);
 void saveQTable(const QTable &table, const std::string &path);
 QTable loadQTable(const std::string &path);
-void trainQLearning(QTable &qtable, int episodes);
+void trainQLearning(QTable &qtable, int episodes, int startEpisode);

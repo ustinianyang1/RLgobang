@@ -272,6 +272,13 @@ Node minimax(int depth, int player, int alpha, int beta)
             }
         }
     }
+
+    if(moves.empty())
+    {
+        // 如果没有合法的落子位置，返回一个默认的节点
+        return Node(player == 0 ? -std::numeric_limits<int>::infinity() : std::numeric_limits<int>::infinity(), -1, -1);
+    }
+
     std::sort(moves.begin(), moves.end(), [&](auto a, auto b)
         {
             return historyHeuristic[a.first][a.second] > historyHeuristic[b.first][b.second];

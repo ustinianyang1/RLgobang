@@ -4,6 +4,7 @@
 #include <conio.h>
 #include "global.h"
 #include <iostream>
+#include <fstream>
 
 extern QTable qTable;
 
@@ -15,7 +16,6 @@ void gameLoop();
 void showStartScreen();
 void showGameOver();
 
-
 void initGraphics()
 {
     initgraph(SCENESIZE, SCENESIZE);
@@ -24,6 +24,29 @@ void initGraphics()
     BeginBatchDraw();
 }
 
+// 记录训练进度
+static void saveTrainingProgress(int episode)
+{
+    std::ofstream progressFile("training_progress.txt");
+    if(progressFile.is_open())
+    {
+        progressFile << episode;
+        progressFile.close();
+    }
+}
+
+// 读取训练进度
+static int loadTrainingProgress()
+{
+    std::ifstream progressFile("training_progress.txt");
+    int episode = 0;
+    if(progressFile.is_open())
+    {
+        progressFile >> episode;
+        progressFile.close();
+    }
+    return episode;
+}
 
 void processMouseEvent()
 {
@@ -32,53 +55,46 @@ void processMouseEvent()
     {
         if(msg.message == WM_LBUTTONDOWN)
         {
-            
             int gridX = (msg.x - RADIUS + UNIT_SIZE / 2) / UNIT_SIZE;
             int gridY = (msg.y - RADIUS + UNIT_SIZE / 2) / UNIT_SIZE;
 
-            
             if(gridX >= 0 && gridX < BOARD_SIZE &&
                 gridY >= 0 && gridY < BOARD_SIZE)
             {
                 handleClick(gridX, gridY);
             }
 
-            
             checkButtonClick(msg.x, msg.y);
         }
     }
 }
 
-
 void gameLoop()
 {
     while(!gameover)
     {
-        
         if(robothumangamestart)
         {
             if(current_player == 1)
-            { 
+            {
                 aiMove(qTable);
                 FlushBatchDraw();
             }
             else
-            { 
+            {
                 processMouseEvent();
             }
         }
 
-        
         if(robotrobotgamestart)
         {
             aiMove(qTable);
             FlushBatchDraw();
         }
 
-        
         drawBoard();
         FlushBatchDraw();
-        Sleep(5); 
+        Sleep(5);
     }
 }
 
@@ -87,13 +103,11 @@ void showStartScreen()
     cleardevice();
     settextcolor(WHITE);
 
-    
     settextstyle(60, 0, _T("微软雅黑"));
     int titleWidth = textwidth(L"五子棋");
     int titleHeight = textheight(L"五子棋");
     outtextxy((SCENESIZE - titleWidth) / 2, (SCENESIZE - titleHeight) / 2 - 100, L"五子棋");
 
-    
     settextstyle(30, 0, _T("微软雅黑"));
     int humanVsAiWidth = textwidth(L"人机大战");
     int humanVsAiHeight = textheight(L"人机大战");
@@ -101,14 +115,12 @@ void showStartScreen()
     int humanVsAiY = (SCENESIZE - humanVsAiHeight) / 2;
     outtextxy(humanVsAiX, humanVsAiY, L"人机大战");
 
-    
     int aiVsAiWidth = textwidth(L"AI对战");
     int aiVsAiHeight = textheight(L"AI对战");
     int aiVsAiX = (SCENESIZE - aiVsAiWidth) / 2;
     int aiVsAiY = (SCENESIZE - aiVsAiHeight) / 2 + 50;
     outtextxy(aiVsAiX, aiVsAiY, L"AI对战");
 
-    
     const GameButton trainBtn = {
         aiVsAiX - 50, aiVsAiY + 50,
         aiVsAiX + aiVsAiWidth + 50, aiVsAiY + aiVsAiHeight + 50,
@@ -151,7 +163,8 @@ void showStartScreen()
             {
                 try
                 {
-                    trainQLearning(qTable, 1000); 
+                    int startEpisode = loadTrainingProgress();
+                    trainQLearning(qTable, TrainNumber, startEpisode);
                 }
                 catch(const std::exception &e)
                 {
@@ -163,19 +176,16 @@ void showStartScreen()
     cleardevice();
 }
 
-
 void showGameOver()
 {
     cleardevice();
     settextcolor(WHITE);
     settextstyle(60, 0, _T("微软雅黑"));
 
-    
     int titleWidth = textwidth(L"游戏结束");
     int titleHeight = textheight(L"游戏结束");
     outtextxy((SCENESIZE - titleWidth) / 2, (SCENESIZE - titleHeight) / 2 - 100, L"游戏结束");
 
-    
     const wchar_t *result = current_player == 0 ? L"黑方获胜" : L"白方获胜";
     settextstyle(40, 0, _T("微软雅黑"));
     int resultWidth = textwidth(result);
@@ -184,7 +194,6 @@ void showGameOver()
 
     FlushBatchDraw();
 
-    
     if(MessageBox(GetHWnd(), L"再玩一局？", L"游戏结束", MB_YESNO) == IDYES)
     {
         resetGame();
@@ -195,39 +204,30 @@ void showGameOver()
     }
 }
 
-
 int main()
 {
-    
     initGraphics();
-    //qTable = initQTable();
-    qTable = loadQTable("qtable.dat"); 
+    qTable = loadQTable("qtable.dat");
 
-    
     showStartScreen();
 
-    
     while(true)
     {
         processMouseEvent();
 
-        
         if(gameover)
         {
             showGameOver();
         }
 
-        
         gameLoop();
     }
 
-    
     saveQTable(qTable, "qtable_updated.dat");
     EndBatchDraw();
     closegraph();
     return 0;
 }
-
 
 void resetGame()
 {
@@ -241,10 +241,8 @@ void resetGame()
     cleardevice();
 }
 
-
 void checkButtonClick(int x, int y)
 {
-    
     if(x >= undoBtn.left && x <= undoBtn.right &&
         y >= undoBtn.top && y <= undoBtn.bottom)
     {
@@ -273,7 +271,8 @@ void checkButtonClick(int x, int y)
     {
         try
         {
-            trainQLearning(qTable, TrainNumber); 
+            int startEpisode = loadTrainingProgress();
+            trainQLearning(qTable, TrainNumber, startEpisode);
         }
         catch(const std::exception &e)
         {

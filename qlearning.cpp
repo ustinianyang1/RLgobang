@@ -10,6 +10,30 @@ QTable initQTable()
     return QTable();
 }
 
+// 记录训练进度
+void saveTrainingProgress(int episode)
+{
+    std::ofstream progressFile("training_progress.txt");
+    if(progressFile.is_open())
+    {
+        progressFile << episode;
+        progressFile.close();
+    }
+}
+
+// 读取训练进度
+int loadTrainingProgress()
+{
+    std::ifstream progressFile("training_progress.txt");
+    int episode = 0;
+    if(progressFile.is_open())
+    {
+        progressFile >> episode;
+        progressFile.close();
+    }
+    return episode;
+}
+
 double getQValue(const QTable &table, const std::vector<std::vector<int>> &state, int action)
 {
     auto key = std::make_pair(state, action);
@@ -147,13 +171,13 @@ double getIntermediateReward(int x, int y, int player)
     return reward;
 }
 
-void trainQLearning(QTable &qtable, int episodes)
+void trainQLearning(QTable &qtable, int episodes, int startEpisode = 0)
 {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> randProb(0.0, 1.0);
 
-    for(int ep = 0; ep < episodes; ++ep)
+    for(int ep = startEpisode; ep < episodes; ++ep)
     {
         gameover = false;
         std::fill(cover.begin(), cover.end(), std::vector<int>(BOARD_SIZE, 2));
@@ -190,7 +214,7 @@ void trainQLearning(QTable &qtable, int episodes)
                 action = node.x * BOARD_SIZE + node.y;
             }
 
-            if(action != -1)
+            if(action != -1 && action != -16)
             {
                 int x = action / BOARD_SIZE, y = action % BOARD_SIZE;
                 if(current_player == 0 && (checkthree(x, y) || checkfour(x, y) || checklong(x, y)))
@@ -228,6 +252,10 @@ void trainQLearning(QTable &qtable, int episodes)
             }
         }
 
-        if(ep % 10 == 9) saveQTable(qtable, "qtable_ep" + std::to_string(ep) + ".bin");
+        if(ep % 10 == 9)
+        {
+            saveQTable(qtable, "qtable_ep" + std::to_string(ep) + ".bin");
+            saveTrainingProgress(ep + 1); // 保存训练进度
+        }
     }
 }
