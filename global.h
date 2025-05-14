@@ -19,14 +19,13 @@ const int SCENESIZE = 900;
 const int RADIUS = UNIT_SIZE / 2;   
 const int UPDATE_RADIUS = 5;        
 
-// 原配置
 const double LEARNING_RATE_START = 0.2;  // 学习率起始值
 const double LEARNING_RATE_END = 0.01;    // 学习率结束值
 const double LEARNING_RATE_DECAY = 0.99;  // 学习率衰减率
 
-const double DISCOUNT_FACTOR = 0.95;      // 折扣因子增大，更看重未来奖励
-const int REPLAY_BUFFER_SIZE = 50000;     // 回放缓冲区增大
-const int BATCH_SIZE = 64;                // 批次大小增大
+const double DISCOUNT_FACTOR = 0.95;      // 折扣因子
+const int REPLAY_BUFFER_SIZE = 50000;     // 回放缓冲区
+const int BATCH_SIZE = 64;                // 批次大小
 const double EPSILON_START = 0.9;
 const double EPSILON_END = 0.05;
 const double EPSILON_DECAY = 0.99;
@@ -39,7 +38,7 @@ const double LIVE_TWO_REWARD = 0.1;
 const double LIVE_THREE_REWARD = 0.5;
 const double LIVE_FOUR_REWARD = 0.8;
 
-const int SEARCH_DEPTH = 2;          
+const int SEARCH_DEPTH = 3;          
 const double ATTACK_BLACK = 1.0;     
 const double ATTACK_WHITE = 1.0;     
 
