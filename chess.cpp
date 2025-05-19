@@ -329,7 +329,14 @@ void drawBoard()
             RADIUS + BOXSIZE, RADIUS + i * UNIT_SIZE);
     }
 
-    
+    setfillcolor(BLACK);
+    setlinecolor(BLACK);
+    fillcircle(3 * UNIT_SIZE + RADIUS, 3 * UNIT_SIZE + RADIUS, ZUOXING);
+	fillcircle(11 * UNIT_SIZE + RADIUS, 3 * UNIT_SIZE + RADIUS, ZUOXING);
+	fillcircle(11 * UNIT_SIZE + RADIUS, 11 * UNIT_SIZE + RADIUS, ZUOXING);
+	fillcircle(3 * UNIT_SIZE + RADIUS, 11 * UNIT_SIZE + RADIUS, ZUOXING);
+	fillcircle(7 * UNIT_SIZE + RADIUS, 7 * UNIT_SIZE + RADIUS, TIANYUAN);
+
     for(int x = 0; x < BOARD_SIZE; x++)
     {
         for(int y = 0; y < BOARD_SIZE; y++)

@@ -12,10 +12,12 @@ enum class Color
 	Black = 0, White = 1, Empty = 2
 };
 
-const int BOARD_SIZE = 15;          
+const int BOARD_SIZE = 15;  
 const int UNIT_SIZE = 60;           
 const int BOXSIZE = 840;            
-const int SCENESIZE = 900;          
+const int SCENESIZE = 900;  
+const int TIANYUAN = 5;
+const int ZUOXING = 3;
 const int RADIUS = UNIT_SIZE / 2;   
 const int UPDATE_RADIUS = 5;        
 
@@ -38,7 +40,7 @@ const double LIVE_TWO_REWARD = 0.1;
 const double LIVE_THREE_REWARD = 0.5;
 const double LIVE_FOUR_REWARD = 0.8;
 
-const int SEARCH_DEPTH = 3;          
+const int SEARCH_DEPTH = 2;          
 const double ATTACK_BLACK = 1.0;     
 const double ATTACK_WHITE = 1.0;     
 
